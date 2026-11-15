@@ -1,0 +1,49 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Keep shared project configuration
+!.idea/codeStyles/
+!.idea/inspectionProfiles/
+
+# Local machine configuration
+local.properties
+
+# Android build outputs
+*/build/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+*.kotlin_module
+
+# Signing files and secrets
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+
+# Generated files
+captures/
+.externalNativeBuild/
+navigation.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.swp
+*.swo
+*~
