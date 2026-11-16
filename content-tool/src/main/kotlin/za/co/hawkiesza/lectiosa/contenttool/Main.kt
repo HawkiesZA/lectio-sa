@@ -304,7 +304,7 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
 
             var assignmentId = 1
             Files.list(calendarDir).use { files ->
-                files.filter { it.toString().endsWith(".csv") }.sorted().forEach { calendarPath ->
+                files.filter { it.fileName.toString().matches(Regex("\\d{4}\\.csv")) }.sorted().forEach { calendarPath ->
                     Files.readAllLines(calendarPath).drop(1).filter(String::isNotBlank).forEach { line ->
                         val fields = parseCsvLine(line)
                         require(fields.size == 12) { "calendar row in $calendarPath must contain 12 fields" }
@@ -434,7 +434,7 @@ private fun validate(path: Path): List<ValidationIssue> {
     lines.drop(1).forEachIndexed { index, line ->
         val lineNumber = index + 2
         if (line.isBlank()) return@forEachIndexed
-        val fields = line.split(',')
+        val fields = parseCsvLine(line)
         if (fields.size != EXPECTED_COLUMNS.count { it == ',' } + 1) {
             issues += ValidationIssue(lineNumber, "expected 12 comma-separated columns")
             return@forEachIndexed

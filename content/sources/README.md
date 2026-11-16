@@ -22,3 +22,24 @@ From the repository root, inspect and prepare the module with the native SWORD t
 ```
 
 The `.imp` and `.tsv` files are preparation intermediates. Keep them outside packaged Android outputs and retain their source hash in the content manifest.
+
+## Annual Ordo review extracts
+
+The year-selected Ordo form is submitted with `year=2026` or `year=2027`. The repeatable preparation script is `content/sources/scrape_ordo.py`; it writes the review-only extracts below:
+
+- `content/calendar/2026_to_review.csv`
+- `content/calendar/2027_to_review.csv`
+
+Each extract contains one SACBC-scoped row per day, uses the annual Ordo's embedded SACBC local-calendar blocks where present, and keeps every row at `needs_review`.
+
+The scraper prints a warning for dates whose selected row contains no reading citation at all. These are source-review cases, not silently filled data: most are SACBC proper-calendar entries that provide only a common form, while 19 October is a Jesuit observance whose page refers users to seasonal weekday readings without printing them.
+
+After review, merge the approved rows into `content/calendar/2026.csv` and `content/calendar/2027.csv`. Files ending in `_to_review.csv` are retained as preparation inputs and are deliberately excluded from database compilation.
+
+To refresh the canonical files after editing the review extracts, run:
+
+```sh
+python3 content/sources/merge_calendar_review.py
+```
+
+The script preserves canonical rows already marked `reviewed` and imports the remaining rows from the review extracts.

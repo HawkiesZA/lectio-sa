@@ -10,9 +10,13 @@ import kotlinx.coroutines.launch
 
 data class ResolvedReading(
     val role: String,
+    val alternatives: List<ResolvedAlternative>,
+    val reviewStatus: String,
+)
+
+data class ResolvedAlternative(
     val citation: String,
     val text: String,
-    val reviewStatus: String,
 )
 
 sealed interface DailyContentState {
@@ -40,11 +44,16 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
                 return@launch
             }
             val readings = dao.assignments(date, "SACBC").map { assignment ->
-                val resolved = resolveCitation(dao, assignment.originalCitation)
+                val alternatives = splitAlternatives(assignment.originalCitation).map { alternative ->
+                    ResolvedAlternative(
+                        citation = alternative,
+                        text = resolveCitation(dao, alternative)
+                            ?: "Passage mapping pending for $alternative",
+                    )
+                }
                 ResolvedReading(
                     role = assignment.role,
-                    citation = assignment.originalCitation,
-                    text = resolved ?: "Passage mapping pending for ${assignment.originalCitation}",
+                    alternatives = alternatives,
                     reviewStatus = assignment.reviewStatus,
                 )
             }
@@ -99,3 +108,8 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
         )
     }
 }
+
+internal fun splitAlternatives(citation: String): List<String> =
+    citation.split(Regex("\\s+or\\s+", RegexOption.IGNORE_CASE))
+        .map(String::trim)
+        .filter(String::isNotBlank)

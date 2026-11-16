@@ -51,6 +51,10 @@ class MainActivity : ComponentActivity() {
 
 private data class Reading(
     val title: String,
+    val alternatives: List<ReadingAlternative>,
+)
+
+private data class ReadingAlternative(
     val reference: String,
     val text: String,
 )
@@ -58,18 +62,15 @@ private data class Reading(
 private val sampleReadings = listOf(
     Reading(
         title = "First reading",
-        reference = "Sample content pending calendar review",
-        text = "The reviewed South African reading assignment will appear here. This vertical slice is intentionally offline and contains no network dependency.",
+        alternatives = listOf(ReadingAlternative("Sample content pending calendar review", "The reviewed South African reading assignment will appear here. This vertical slice is intentionally offline and contains no network dependency.")),
     ),
     Reading(
         title = "Psalm",
-        reference = "Sample response pending source review",
-        text = "The assigned psalm verses and response will be added after the calendar and passage mappings are reviewed.",
+        alternatives = listOf(ReadingAlternative("Sample response pending source review", "The assigned psalm verses and response will be added after the calendar and passage mappings are reviewed.")),
     ),
     Reading(
         title = "Gospel",
-        reference = "Sample content pending calendar review",
-        text = "WEB Catholic text will be resolved locally from the bundled content database once the importer and reviewed assignments are in place.",
+        alternatives = listOf(ReadingAlternative("Sample content pending calendar review", "WEB Catholic text will be resolved locally from the bundled content database once the importer and reviewed assignments are in place.")),
     ),
 )
 
@@ -134,8 +135,9 @@ private fun LectioSaApp() {
                                 ReadingCard(
                                     Reading(
                                         title = reading.role.replace('_', ' ').replaceFirstChar { it.uppercase() },
-                                        reference = reading.citation,
-                                        text = reading.text,
+                                        alternatives = reading.alternatives.map { alternative ->
+                                            ReadingAlternative(alternative.citation, alternative.text)
+                                        },
                                     ),
                                 )
                                 if (index < state.readings.lastIndex) Spacer(Modifier.height(12.dp))
@@ -183,16 +185,46 @@ private fun DateNavigation(
 
 @Composable
 private fun ReadingCard(reading: Reading) {
+    var alternativeIndex by rememberSaveable(reading.title, reading.alternatives.joinToString { it.reference }) {
+        mutableStateOf(0)
+    }
+    val selectedAlternative = reading.alternatives.getOrNull(alternativeIndex)
+        ?: reading.alternatives.first()
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(reading.title, style = MaterialTheme.typography.titleLarge)
+            if (reading.alternatives.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    IconButton(
+                        onClick = { alternativeIndex-- },
+                        enabled = alternativeIndex > 0,
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous alternative")
+                    }
+                    Text(
+                        text = "Alternative ${alternativeIndex + 1} of ${reading.alternatives.size}",
+                        modifier = Modifier.padding(top = 12.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    IconButton(
+                        onClick = { alternativeIndex++ },
+                        enabled = alternativeIndex < reading.alternatives.lastIndex,
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next alternative")
+                    }
+                }
+            }
             Text(
-                reading.reference,
+                selectedAlternative.reference,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-            Text(reading.text, style = MaterialTheme.typography.bodyLarge)
+            Text(selectedAlternative.text, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
