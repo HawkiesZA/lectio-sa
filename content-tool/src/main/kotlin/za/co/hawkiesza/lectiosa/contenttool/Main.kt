@@ -45,6 +45,11 @@ fun main(args: Array<String>) {
         compileDatabase(Path.of(args[1]), Path.of(args[2]), Path.of(args[3]))
         return
     }
+    if (args.firstOrNull() == "--overlay-source") {
+        require(args.size == 4) { "usage: --overlay-source <rendered.tsv> <source.tsv> <output.tsv>" }
+        overlaySource(Path.of(args[1]), Path.of(args[2]), Path.of(args[3]))
+        return
+    }
 
     val paths = args.map(Path::of).ifEmpty {
         listOf(Path.of("content/calendar/2026.csv"), Path.of("content/calendar/2027.csv"))
@@ -165,6 +170,58 @@ private fun renderNormalized(input: Path, output: Path) {
         rows.forEach { appendLine(it) }
     })
     println("WROTE " + output + " (" + rows.size + " entries)")
+}
+
+internal fun overlaySource(renderedPath: Path, sourcePath: Path, outputPath: Path) {
+    require(Files.exists(renderedPath)) { "rendered input not found: $renderedPath" }
+    require(Files.exists(sourcePath)) { "source overlay not found: $sourcePath" }
+
+    val renderedHeader = "book\tchapter\tverse\ttext\tosis_fragment"
+    val sourceHeader = "book\tchapter\tverse\ttext"
+    val renderedRows = Files.readAllLines(renderedPath)
+    require(renderedRows.firstOrNull() == renderedHeader) {
+        "rendered input has an unexpected header"
+    }
+    val sourceRows = Files.readAllLines(sourcePath)
+    require(sourceRows.firstOrNull() == sourceHeader) {
+        "source overlay has an unexpected header"
+    }
+
+    val overlay = sourceRows.drop(1).filter(String::isNotBlank).map { line ->
+        val fields = line.split('\t', limit = 4)
+        require(fields.size == 4) { "source overlay row must contain four tab-separated fields" }
+        require(fields[0] == "Psalms" && fields[1] == "119") {
+            "source overlay may only contain Psalms chapter 119"
+        }
+        val verse = fields[2].toIntOrNull()
+        require(verse != null && verse in 1..176) {
+            "Psalm 119 source verse must be between 1 and 176"
+        }
+        require(fields[3].isNotBlank() && !fields[3].contains('\t') && !fields[3].contains('\n')) {
+            "Psalm 119 source text must be a non-empty single TSV field"
+        }
+        fields
+    }.sortedBy { it[2].toInt() }
+
+    require(overlay.map { it[2].toInt() } == (1..176).toList()) {
+        "Psalm 119 source overlay must contain exactly one row for every verse 1-176"
+    }
+    require(overlay.all { it[3].isNotBlank() }) { "Psalm 119 source text must not be blank" }
+
+    val rows = renderedRows.drop(1).filter(String::isNotBlank).map { it.split('\t', limit = 5) }
+    require(rows.all { it.size == 5 }) { "rendered input row must contain five tab-separated fields" }
+    val withoutPsalm119 = rows.filterNot { it[0] == "Psalms" && it[1] == "119" && it[2] != "0" }
+    val insertionIndex = withoutPsalm119.indexOfFirst { it[0] == "Psalms" && it[1] == "119" }
+    require(insertionIndex >= 0) { "rendered input has no Psalms 119 structural row" }
+    val replacement = overlay.map { listOf(it[0], it[1], it[2], it[3], "source-override:ebible.org/eng-web-c/PSA119.htm") }
+    val outputRows = withoutPsalm119.toMutableList().apply { addAll(insertionIndex + 1, replacement) }
+
+    outputPath.parent?.let(Files::createDirectories)
+    Files.writeString(outputPath, buildString {
+        appendLine(renderedHeader)
+        outputRows.forEach { appendLine(it.joinToString("\t")) }
+    })
+    println("WROTE $outputPath (Psalm 119 source overlay applied)")
 }
 
 private fun renderOsisStream(fragments: List<String>): List<String> {
