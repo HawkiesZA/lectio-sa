@@ -50,6 +50,8 @@ Apply the checked-in source before compiling the database:
 ./gradlew :content-tool:run --args='--compile-db /private/tmp/engwebc2025eb-rendered-overlaid.tsv content/calendar /private/tmp/lectio-content.db'
 ```
 
+After a Room schema change, run `./gradlew :app:compileDebugKotlin` before `--compile-db`; the compiler reads the generated Room identity hash from `app/schemas/.../2.json`.
+
 The overlay command requires exactly one non-empty row for every Psalm 119 verse from 1 through 176 and removes the malformed module verse rows. Record the upstream URL and SHA-256 of the TSV alongside the extract.
 
 Current extract provenance: `https://ebible.org/eng-web-c/PSA119.htm`; SHA-256 `ec62b5de60fe0fee18bab7356708d13242561d0e63f0a85c053f75675384691e`.
@@ -74,3 +76,16 @@ python3 content/sources/merge_calendar_review.py
 ```
 
 The script preserves canonical rows already marked `reviewed` and imports the remaining rows from the review extracts.
+
+Audit canonical calendar structure before compiling:
+
+```sh
+python3 content/sources/audit_calendar.py
+python3 content/sources/audit_calendar.py --fix-safe-shifts
+```
+
+The audit only repairs unambiguous Psalm/second-reading column shifts. It also reports other likely column shifts, editorial notes, cross-chapter citations, and alternatives. These remain explicit findings for source review rather than being guessed or silently rewritten.
+
+## Multi-reading celebrations
+
+Celebrations with more than the ordinary first reading, psalm, second reading, and Gospel use `content/calendar/multi_readings.csv`. It contains one ordered row per reading unit, with optional paired psalms and an `obligatory` or `optional` selection rule. The compiler validates contiguous sequences and adds these rows to the same Room reading-assignment table. The Easter Vigil on 2027-03-27 is the first such entry and contains ten ordered units.

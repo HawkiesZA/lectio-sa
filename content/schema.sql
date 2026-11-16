@@ -42,9 +42,12 @@ CREATE TABLE reading_assignment (
     id INTEGER NOT NULL PRIMARY KEY,
     date TEXT NOT NULL,
     calendar_scope TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
     role TEXT NOT NULL,
     mass_form TEXT NOT NULL,
     original_citation TEXT NOT NULL,
+    paired_psalm_citation TEXT NOT NULL,
+    selection_rule TEXT NOT NULL,
     review_status TEXT NOT NULL,
     FOREIGN KEY (date, calendar_scope) REFERENCES calendar_day(date, calendar_scope) ON DELETE CASCADE
 );
@@ -55,5 +58,5 @@ CREATE INDEX index_verse_unit_edition_id_book_code_chapter_sort_order
 CREATE INDEX index_calendar_day_date_calendar_scope
     ON calendar_day (date, calendar_scope);
 
-CREATE INDEX index_reading_assignment_date_calendar_scope_role
-    ON reading_assignment (date, calendar_scope, role);
+CREATE INDEX index_reading_assignment_date_calendar_scope_sequence
+    ON reading_assignment (date, calendar_scope, sequence);

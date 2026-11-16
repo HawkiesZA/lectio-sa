@@ -1,0 +1,21 @@
+date,calendar_scope,sequence,role,selection_rule,reading_citation,psalm_citation,source_url,review_status
+2026-04-04,SACBC,1,reading,optional,"Gen 1:1-2:2 or Gen 1:1 26-31a","Ps 104:1-2 5-6 10+12 13-14 24+35 or Ps 33:4-5 6-7 12-13 20-22",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,2,reading,optional,"Gen 22:1-18 or Gen 22:1-2 9a 10-13 15-18","Ps 16:5+8 9-10 11",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,3,reading,obligatory,"Exod 14:15-15:1","Exod 15:1-2 3-4 5-6 17-18",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,4,reading,optional,"Isa 54:5-14","Ps 30:2+4 5-6 11-12a+13b",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,5,reading,optional,"Isa 55:1-11","Isa 12:2-3 4 5-6",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,6,reading,optional,"Bar 3:9-15 32-4:4","Ps 19:8 9 10 11",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,7,reading,optional,"Ezek 36:16-17a 18-28","Ps 42:3 5 43:3 4 or Isa 12:2-3 4bcd 5-6 or Ps 51:12-13 14-15 18-19",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,8,epistle,obligatory,"Rom 6:3-11",,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,9,alleluia_psalm,obligatory,"Ps 118:1-2 16-17 22-23",,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-04-04,SACBC,10,gospel,obligatory,"Matt 28:1-10",,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,1,reading,optional,"Gen 1:1-2:2 or Gen 1:1 26-31a","Ps 104:1-2 5-6 10+12 13-14 24+35 or Ps 33:4-5 6-7 12-13 20-22",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,2,reading,optional,"Gen 22:1-18 or Gen 22:1-2 9a 10-13 15-18","Ps 16:5+8 9-10 11",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,3,reading,obligatory,"Exod 14:15-15:1","Exod 15:1-2 3-4 5-6 17-18",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,4,reading,optional,"Isa 54:5-14","Ps 30:2+4 5-6 11-12a+13b",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,5,reading,optional,"Isa 55:1-11","Isa 12:2-3 4 5-6",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,6,reading,optional,"Bar 3:9-15 32-4:4","Ps 19:8 9 10 11",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,7,reading,optional,"Ezek 36:16-17a 18-28","Ps 42:3 5 43:3 4 or Isa 12:2-3 4bcd 5-6 or Ps 51:12-13 14-15 18-19",https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,8,epistle,obligatory,"Rom 6:3-11",,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,9,alleluia_psalm,obligatory,"Ps 118:1-2 16-17 22-23",,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2027-03-27,SACBC,10,gospel,obligatory,"Mark 16:1-7",,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed

@@ -325,6 +325,7 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
     require(Files.exists(renderedPath)) { "rendered input not found: $renderedPath" }
     require(Files.isDirectory(calendarDir)) { "calendar directory not found: $calendarDir" }
     require(Files.exists(Path.of("content/schema.sql"))) { "content/schema.sql not found" }
+    val roomIdentityHash = readRoomIdentityHash()
     output.parent?.let(Files::createDirectories)
     Files.deleteIfExists(output)
 
@@ -334,10 +335,10 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
             sql.appendLine("PRAGMA foreign_keys = ON;")
             sql.appendLine(Files.readString(Path.of("content/schema.sql")))
             sql.appendLine("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY, identity_hash TEXT);")
-            sql.appendLine("INSERT INTO room_master_table(id, identity_hash) VALUES (42, '870ba2fde235d6e79df432c9714035e6');")
+            sql.appendLine("INSERT INTO room_master_table(id, identity_hash) VALUES (42, " + sqlString(roomIdentityHash) + ");")
             sql.appendLine("BEGIN;")
             sql.appendLine("INSERT INTO content_metadata(key, value) VALUES " +
-                "('schema_version', '1'), " +
+                "('schema_version', '2'), " +
                 "('source_module', 'engwebc2025eb'), " +
                 "('rendered_source_sha256', " + sqlString(sha256(renderedPath)) + ");")
             sql.appendLine("INSERT INTO edition(id, display_name, source_module, versification, attribution, rights_notice) VALUES " +
@@ -360,6 +361,49 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
             }
 
             var assignmentId = 1
+            fun insertAssignment(
+                date: String,
+                scope: String,
+                sequence: Int,
+                role: String,
+                massForm: String,
+                citation: String,
+                pairedPsalm: String,
+                selectionRule: String,
+                reviewStatus: String,
+            ) {
+                require(citation.isNotBlank()) { "reading citation must not be blank for $date#$sequence" }
+                require(selectionRule in setOf("obligatory", "optional")) {
+                    "invalid selection rule '$selectionRule' for $date#$sequence"
+                }
+                sql.appendLine(
+                    "INSERT INTO reading_assignment(id, date, calendar_scope, sequence, role, mass_form, original_citation, paired_psalm_citation, selection_rule, review_status) VALUES (" +
+                        assignmentId + ", " + sqlString(date) + ", " + sqlString(scope) + ", " + sequence + ", " +
+                        sqlString(role) + ", " + sqlString(massForm) + ", " + sqlString(citation) + ", " +
+                        sqlString(pairedPsalm) + ", " + sqlString(selectionRule) + ", " + sqlString(reviewStatus) + ");",
+                )
+                assignmentId++
+            }
+            val multiPath = calendarDir.resolve("multi_readings.csv")
+            val multiRows = if (Files.exists(multiPath)) {
+                val lines = Files.readAllLines(multiPath)
+                require(lines.firstOrNull() == "date,calendar_scope,sequence,role,selection_rule,reading_citation,psalm_citation,source_url,review_status") {
+                    "multi-reading input has an unexpected header"
+                }
+                lines.drop(1).filter(String::isNotBlank).map { line ->
+                    val fields = parseCsvLine(line)
+                    require(fields.size == 9) { "multi-reading row in $multiPath must contain 9 fields" }
+                    require(fields[2].toIntOrNull() != null && fields[2].toInt() > 0) {
+                        "multi-reading sequence must be positive: $line"
+                    }
+                    fields
+                }
+            } else emptyList()
+            multiRows.groupBy { it[0] to it[1] }.forEach { (day, rows) ->
+                val sequences = rows.map { it[2].toInt() }.sorted()
+                require(sequences == sequences.distinct()) { "duplicate multi-reading sequence for $day" }
+                require(sequences == (1..sequences.size).toList()) { "multi-reading sequences must start at 1 for $day" }
+            }
             Files.list(calendarDir).use { files ->
                 files.filter { it.fileName.toString().matches(Regex("\\d{4}\\.csv")) }.sorted().forEach { calendarPath ->
                     Files.readAllLines(calendarPath).drop(1).filter(String::isNotBlank).forEach { line ->
@@ -375,17 +419,21 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
                             "psalm" to fields[7],
                             "second_reading" to fields[8],
                             "gospel" to fields[9],
-                        ).filter { it.second.isNotBlank() }.forEach { (role, citation) ->
-                            sql.appendLine(
-                                "INSERT INTO reading_assignment(id, date, calendar_scope, role, mass_form, original_citation, review_status) VALUES (" +
-                                    assignmentId + ", " + sqlString(fields[0]) + ", " + sqlString(fields[1]) + ", " +
-                                    sqlString(role) + ", " + sqlString(fields[5]) + ", " + sqlString(citation) + ", " +
-                                    sqlString(fields[11]) + ");",
-                            )
-                            assignmentId++
-                        }
+                        ).mapIndexed { index, (role, citation) -> index + 1 to role to citation }
+                            .filter { it.second.isNotBlank() }
+                            .forEach { (sequenceAndRole, citation) ->
+                                insertAssignment(
+                                    fields[0], fields[1], sequenceAndRole.first, sequenceAndRole.second,
+                                    fields[5], citation, "", "obligatory", fields[11],
+                                )
+                            }
                     }
                 }
+            }
+            multiRows.forEach { fields ->
+                    insertAssignment(
+                        fields[0], fields[1], fields[2].toInt(), fields[3], "", fields[5], fields[6], fields[4], fields[8],
+                    )
             }
             sql.appendLine("COMMIT;")
         }
@@ -402,6 +450,16 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
     } finally {
         Files.deleteIfExists(sqlFile)
     }
+}
+
+private fun readRoomIdentityHash(): String {
+    val schemaPath = Path.of("app/schemas/za.co.hawkiesza.lectiosa.content.ContentDatabase/2.json")
+    require(Files.exists(schemaPath)) {
+        "Room schema not found at $schemaPath; run ./gradlew :app:compileDebugKotlin first"
+    }
+    val match = Regex("\\\"identityHash\\\"\\s*:\\s*\\\"([0-9a-f]+)\\\"").find(Files.readString(schemaPath))
+    return match?.groupValues?.get(1)
+        ?: error("Room schema has no identityHash: $schemaPath")
 }
 
 private fun sqlString(value: String): String = "'" + value.replace("'", "''") + "'"

@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
 private data class Reading(
     val title: String,
     val alternatives: List<ReadingAlternative>,
+    val pairedPsalmAlternatives: List<ReadingAlternative> = emptyList(),
+    val selectionRule: String = "obligatory",
 )
 
 private data class ReadingAlternative(
@@ -134,10 +136,20 @@ private fun LectioSaApp() {
                             state.readings.forEachIndexed { index, reading ->
                                 ReadingCard(
                                     Reading(
-                                        title = reading.role.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                                        title = when (reading.role) {
+                                            "reading" -> "Reading ${reading.sequence}"
+                                            "epistle" -> "Epistle"
+                                            "alleluia_psalm" -> "Alleluia Psalm"
+                                            "gospel" -> "Gospel"
+                                            else -> reading.role.replace('_', ' ').replaceFirstChar { it.uppercase() }
+                                        },
                                         alternatives = reading.alternatives.map { alternative ->
                                             ReadingAlternative(alternative.citation, alternative.text)
                                         },
+                                        pairedPsalmAlternatives = reading.pairedPsalmAlternatives.map { alternative ->
+                                            ReadingAlternative(alternative.citation, alternative.text)
+                                        },
+                                        selectionRule = reading.selectionRule,
                                     ),
                                 )
                                 if (index < state.readings.lastIndex) Spacer(Modifier.height(12.dp))
@@ -188,43 +200,58 @@ private fun ReadingCard(reading: Reading) {
     var alternativeIndex by rememberSaveable(reading.title, reading.alternatives.joinToString { it.reference }) {
         mutableStateOf(0)
     }
+    var psalmAlternativeIndex by rememberSaveable(reading.title, "psalm", reading.pairedPsalmAlternatives.joinToString { it.reference }) {
+        mutableStateOf(0)
+    }
     val selectedAlternative = reading.alternatives.getOrNull(alternativeIndex)
         ?: reading.alternatives.first()
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(reading.title, style = MaterialTheme.typography.titleLarge)
-            if (reading.alternatives.size > 1) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    IconButton(
-                        onClick = { alternativeIndex-- },
-                        enabled = alternativeIndex > 0,
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous alternative")
-                    }
-                    Text(
-                        text = "Alternative ${alternativeIndex + 1} of ${reading.alternatives.size}",
-                        modifier = Modifier.padding(top = 12.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    IconButton(
-                        onClick = { alternativeIndex++ },
-                        enabled = alternativeIndex < reading.alternatives.lastIndex,
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next alternative")
-                    }
-                }
+            if (reading.selectionRule == "optional") {
+                Text("Optional reading", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+            } else if (reading.title.startsWith("Reading ")) {
+                Text("Obligatory reading", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
             }
-            Text(
-                selectedAlternative.reference,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            AlternativeNavigation(alternativeIndex, reading.alternatives.size, { alternativeIndex-- }, { alternativeIndex++ })
+            Text(selectedAlternative.reference, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
             Text(selectedAlternative.text, style = MaterialTheme.typography.bodyLarge)
+            if (reading.pairedPsalmAlternatives.isNotEmpty()) {
+                val selectedPsalm = reading.pairedPsalmAlternatives[psalmAlternativeIndex.coerceIn(0, reading.pairedPsalmAlternatives.lastIndex)]
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(12.dp))
+                Text("Psalm", style = MaterialTheme.typography.titleMedium)
+                AlternativeNavigation(psalmAlternativeIndex, reading.pairedPsalmAlternatives.size, { psalmAlternativeIndex-- }, { psalmAlternativeIndex++ })
+                Text(selectedPsalm.reference, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                Text(selectedPsalm.text, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlternativeNavigation(
+    index: Int,
+    count: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    if (count > 1) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(onClick = onPrevious, enabled = index > 0) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous alternative")
+            }
+            Text("Alternative ${index + 1} of $count", modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium)
+            IconButton(onClick = onNext, enabled = index < count - 1) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next alternative")
+            }
         }
     }
 }

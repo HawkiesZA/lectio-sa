@@ -71,14 +71,17 @@ data class CalendarDayEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("date", "calendar_scope", "role")],
+    indices = [Index("date", "calendar_scope", "sequence")],
 )
 data class ReadingAssignmentEntity(
     @androidx.room.PrimaryKey val id: Long,
     val date: String,
     @androidx.room.ColumnInfo(name = "calendar_scope") val calendarScope: String,
+    val sequence: Int,
     val role: String,
     @androidx.room.ColumnInfo(name = "mass_form") val massForm: String,
     @androidx.room.ColumnInfo(name = "original_citation") val originalCitation: String,
+    @androidx.room.ColumnInfo(name = "paired_psalm_citation") val pairedPsalmCitation: String,
+    @androidx.room.ColumnInfo(name = "selection_rule") val selectionRule: String,
     @androidx.room.ColumnInfo(name = "review_status") val reviewStatus: String,
 )

@@ -17,7 +17,7 @@ interface ContentDao {
     @Query("SELECT * FROM calendar_day WHERE date = :date AND calendar_scope = :scope LIMIT 1")
     suspend fun day(date: String, scope: String): CalendarDayEntity?
 
-    @Query("SELECT * FROM reading_assignment WHERE date = :date AND calendar_scope = :scope ORDER BY id")
+    @Query("SELECT * FROM reading_assignment WHERE date = :date AND calendar_scope = :scope ORDER BY sequence, id")
     suspend fun assignments(date: String, scope: String): List<ReadingAssignmentEntity>
 
     @Query(
