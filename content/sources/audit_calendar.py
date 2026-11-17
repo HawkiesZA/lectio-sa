@@ -152,7 +152,7 @@ def audit(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
         "psalm_second_shift": [],
         "other_column_shift": [],
         "editorial_text": [],
-        "cross_chapter": [],
+        "cross_chapter_supported": [],
         "alternatives": [],
     }
     for row in rows:
@@ -180,7 +180,7 @@ def audit(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
             re.search(r"\d+:[^ ]+\s+\d+:[^ ]+", row[column])
             for column in ("first_reading", "second_reading", "gospel")
         ):
-            findings["cross_chapter"].append(row)
+            findings["cross_chapter_supported"].append(row)
         if re.search(r"\s+or\s+", reading_text, re.IGNORECASE):
             findings["alternatives"].append(row)
     return findings

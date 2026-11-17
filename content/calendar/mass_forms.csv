@@ -2,6 +2,12 @@ date,calendar_scope,form_id,label,sort_order,is_default,source_url,review_status
 2026-04-04,SACBC,easter-vigil,Easter Vigil,1,1,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
 2026-06-24,SACBC,vigil,Vigil Mass,1,1,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
 2026-06-24,SACBC,day,Mass During the Day,2,0,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-06-29,SACBC,vigil,Vigil Mass,1,1,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-06-29,SACBC,day,Mass During the Day,2,0,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-08-15,SACBC,vigil,Vigil Mass,1,1,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-08-15,SACBC,day,Mass During the Day,2,0,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-08-16,SACBC,vigil,Mass of the Vigil,1,1,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
+2026-08-16,SACBC,day,Mass of the Day,2,0,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
 2026-12-25,SACBC,vigil,Vigil Mass,1,1,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
 2026-12-25,SACBC,midnight,Midnight Mass,2,0,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed
 2026-12-25,SACBC,dawn,Dawn Mass,3,0,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed

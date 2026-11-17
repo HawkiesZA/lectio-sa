@@ -84,7 +84,7 @@ python3 content/sources/audit_calendar.py
 python3 content/sources/audit_calendar.py --fix-safe-shifts
 ```
 
-The audit only repairs unambiguous Psalm/second-reading column shifts. It also reports other likely column shifts, editorial notes, cross-chapter citations, and alternatives. These remain explicit findings for source review rather than being guessed or silently rewritten.
+The audit only repairs unambiguous Psalm/second-reading column shifts. It also reports other likely column shifts, editorial notes, supported cross-chapter citations, and alternatives. Cross-chapter citations are informational: the Android resolver supports same-book ranges such as `John 18:1-19:42`. These findings are not data errors and do not need rewriting.
 
 ## Multi-reading celebrations
 
