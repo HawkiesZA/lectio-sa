@@ -148,8 +148,8 @@ internal fun splitAlternatives(citation: String): List<String> =
                 .sortedByDescending(String::length)
                 .firstOrNull { alternatives.firstOrNull()?.startsWith("$it ") == true }
             if (bookPrefix == null) alternatives
-            else alternatives.map { alternative ->
-                if (alternative.firstOrNull()?.isDigit() == true) "$bookPrefix $alternative" else alternative
+            else alternatives.mapIndexed { index, alternative ->
+                if (index > 0 && alternative.firstOrNull()?.isDigit() == true) "$bookPrefix $alternative" else alternative
             }
         }
 

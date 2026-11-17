@@ -51,4 +51,12 @@ class DailyContentViewModelTest {
             parseCitation("Exod 14:15-15:1"),
         )
     }
+
+    @Test
+    fun doesNotDuplicateNumericBookName() {
+        assertEquals(
+            listOf("3 John 1:5-8"),
+            splitAlternatives("3 John 1:5-8"),
+        )
+    }
 }

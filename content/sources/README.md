@@ -56,6 +56,33 @@ The overlay command requires exactly one non-empty row for every Psalm 119 verse
 
 Current extract provenance: `https://ebible.org/eng-web-c/PSA119.htm`; SHA-256 `ec62b5de60fe0fee18bab7356708d13242561d0e63f0a85c053f75675384691e`.
 
+## WEB Catholic Psalm 78 source overlay
+
+The SWORD module also aggregates Psalm 78 after verse 12, so citations such as `Ps 78:56-57 58-59 61-62` cannot resolve from the module export. The checked-in replacement extract was generated from the VPL source with:
+
+```sh
+python3 content/sources/extract_psalm.py \
+  eng-web-c_vpl/eng-web-c_vpl.txt 78 content/sources/psalms-78.tsv
+./gradlew :content-tool:run --args='--overlay-source /private/tmp/engwebc2025eb-rendered-overlaid.tsv content/sources/psalms-78.tsv /private/tmp/engwebc2025eb-rendered-overlaid-78.tsv'
+```
+
+Then compile the database from `engwebc2025eb-rendered-overlaid-78.tsv`. Provenance: `https://ebible.org/eng-web-c/PSA78.htm`; SHA-256 `aebb47e5a7102ac10ff4ec41b4f767536b53c21edffe08ab29b42b0269d00b8c`.
+
+## Psalm boundary audit
+
+The SWORD export has the same kind of lost verse boundaries in multiple Psalms. Compare every Psalm against the VPL source and generate a combined overlay for all affected chapters:
+
+```sh
+python3 content/sources/audit_psalm_boundaries.py \
+  eng-web-c_vpl/eng-web-c_vpl.txt \
+  /private/tmp/engwebc2025eb-rendered.tsv \
+  --overlay-output content/sources/psalms-affected.tsv
+
+./gradlew :content-tool:run --args='--overlay-source /private/tmp/engwebc2025eb-rendered.tsv content/sources/psalms-affected.tsv /private/tmp/engwebc2025eb-rendered-overlaid.tsv'
+```
+
+The checked-in overlay currently repairs 62 affected Psalms, including Psalms 78 and 119. The audit exits with status 1 when repairs are needed and status 0 when the rendered import has no missing non-empty Psalm verse rows. Its source provenance is `https://ebible.org/eng-web-c/PSA{chapter}.htm`; SHA-256 of the current combined overlay is `5f15a9be4789d08a332561088ed5c5417ea297b1cc5e3d1431b8ca626e1fdb78`.
+
 ## Annual Ordo review extracts
 
 The year-selected Ordo form is submitted with `year=2026` or `year=2027`. The repeatable preparation script is `content/sources/scrape_ordo.py`; it writes the review-only extracts below:

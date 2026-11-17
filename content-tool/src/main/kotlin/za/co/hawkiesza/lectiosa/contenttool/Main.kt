@@ -190,38 +190,43 @@ internal fun overlaySource(renderedPath: Path, sourcePath: Path, outputPath: Pat
     val overlay = sourceRows.drop(1).filter(String::isNotBlank).map { line ->
         val fields = line.split('\t', limit = 4)
         require(fields.size == 4) { "source overlay row must contain four tab-separated fields" }
-        require(fields[0] == "Psalms" && fields[1] == "119") {
-            "source overlay may only contain Psalms chapter 119"
+        require(fields[0] == "Psalms" && fields[1].toIntOrNull() != null) {
+            "source overlay may only contain a Psalms chapter"
         }
         val verse = fields[2].toIntOrNull()
-        require(verse != null && verse in 1..176) {
-            "Psalm 119 source verse must be between 1 and 176"
+        require(verse != null && verse > 0) {
+            "Psalm source verse must be a positive integer"
         }
         require(fields[3].isNotBlank() && !fields[3].contains('\t') && !fields[3].contains('\n')) {
-            "Psalm 119 source text must be a non-empty single TSV field"
+            "Psalm source text must be a non-empty single TSV field"
         }
         fields
     }.sortedBy { it[2].toInt() }
 
-    require(overlay.map { it[2].toInt() } == (1..176).toList()) {
-        "Psalm 119 source overlay must contain exactly one row for every verse 1-176"
+    val chapters = overlay.groupBy { it[1].toInt() }
+    chapters.forEach { (chapter, rows) ->
+        require(rows.map { it[2].toInt() } == (1..rows.size).toList()) {
+            "Psalm $chapter source overlay must contain exactly one row for every verse 1-${rows.size}"
+        }
     }
-    require(overlay.all { it[3].isNotBlank() }) { "Psalm 119 source text must not be blank" }
 
     val rows = renderedRows.drop(1).filter(String::isNotBlank).map { it.split('\t', limit = 5) }
     require(rows.all { it.size == 5 }) { "rendered input row must contain five tab-separated fields" }
-    val withoutPsalm119 = rows.filterNot { it[0] == "Psalms" && it[1] == "119" && it[2] != "0" }
-    val insertionIndex = withoutPsalm119.indexOfFirst { it[0] == "Psalms" && it[1] == "119" }
-    require(insertionIndex >= 0) { "rendered input has no Psalms 119 structural row" }
-    val replacement = overlay.map { listOf(it[0], it[1], it[2], it[3], "source-override:ebible.org/eng-web-c/PSA119.htm") }
-    val outputRows = withoutPsalm119.toMutableList().apply { addAll(insertionIndex + 1, replacement) }
+    val withoutPsalms = rows.filterNot { it[0] == "Psalms" && it[1].toIntOrNull() in chapters.keys && it[2] != "0" }
+    val outputRows = withoutPsalms.toMutableList()
+    chapters.toSortedMap().forEach { (chapter, chapterRows) ->
+        val insertionIndex = outputRows.indexOfFirst { it[0] == "Psalms" && it[1] == chapter.toString() }
+        require(insertionIndex >= 0) { "rendered input has no Psalms $chapter structural row" }
+        val replacement = chapterRows.map { listOf(it[0], it[1], it[2], it[3], "source-override:ebible.org/eng-web-c/PSA$chapter.htm") }
+        outputRows.addAll(insertionIndex + 1, replacement)
+    }
 
     outputPath.parent?.let(Files::createDirectories)
     Files.writeString(outputPath, buildString {
         appendLine(renderedHeader)
         outputRows.forEach { appendLine(it.joinToString("\t")) }
     })
-    println("WROTE $outputPath (Psalm 119 source overlay applied)")
+    println("WROTE $outputPath (${chapters.size} Psalm source overlays applied)")
 }
 
 private fun renderOsisStream(fragments: List<String>): List<String> {
