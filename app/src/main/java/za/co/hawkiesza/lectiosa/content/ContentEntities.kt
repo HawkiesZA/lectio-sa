@@ -63,7 +63,7 @@ data class CalendarDayEntity(
 
 @Entity(
     tableName = "mass_form",
-    primaryKeys = ["date", "calendarScope", "formId"],
+    primaryKeys = ["date", "calendar_scope", "form_id"],
     foreignKeys = [
         ForeignKey(
             entity = CalendarDayEntity::class,
@@ -72,7 +72,7 @@ data class CalendarDayEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("date", "calendar_scope", "sortOrder")],
+    indices = [Index("date", "calendar_scope", "sort_order")],
 )
 data class MassFormEntity(
     val date: String,
@@ -92,6 +92,12 @@ data class MassFormEntity(
             entity = CalendarDayEntity::class,
             parentColumns = ["date", "calendar_scope"],
             childColumns = ["date", "calendar_scope"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = MassFormEntity::class,
+            parentColumns = ["date", "calendar_scope", "form_id"],
+            childColumns = ["date", "calendar_scope", "mass_form_id"],
             onDelete = ForeignKey.CASCADE,
         ),
     ],
