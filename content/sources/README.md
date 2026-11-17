@@ -50,7 +50,7 @@ Apply the checked-in source before compiling the database:
 ./gradlew :content-tool:run --args='--compile-db /private/tmp/engwebc2025eb-rendered-overlaid.tsv content/calendar /private/tmp/lectio-content.db'
 ```
 
-After a Room schema change, run `./gradlew :app:compileDebugKotlin` before `--compile-db`; the compiler reads the generated Room identity hash from `app/schemas/.../2.json`.
+After a Room schema change, run `./gradlew :app:compileDebugKotlin` before `--compile-db`; the compiler reads the generated Room identity hash from `app/schemas/.../3.json`.
 
 The overlay command requires exactly one non-empty row for every Psalm 119 verse from 1 through 176 and removes the malformed module verse rows. Record the upstream URL and SHA-256 of the TSV alongside the extract.
 
@@ -88,4 +88,4 @@ The audit only repairs unambiguous Psalm/second-reading column shifts. It also r
 
 ## Multi-reading celebrations
 
-Celebrations with more than the ordinary first reading, psalm, second reading, and Gospel use `content/calendar/multi_readings.csv`. It contains one ordered row per reading unit, with optional paired psalms and an `obligatory` or `optional` selection rule. The compiler validates contiguous sequences and adds these rows to the same Room reading-assignment table. The Easter Vigil on 2027-03-27 is the first such entry and contains ten ordered units.
+Celebrations with more than one permitted Mass form use `content/calendar/mass_forms.csv` and `content/calendar/mass_readings.csv`. The form file defines the visible label, order, and default; the readings file contains one ordered row per reading unit, with optional paired psalms and an `obligatory` or `optional` selection rule. The compiler validates form references and contiguous sequences and adds the rows to the same Room reading-assignment table. The files cover the 2026 and 2027 Easter Vigils, Nativity of St John the Baptist, and Christmas forms.

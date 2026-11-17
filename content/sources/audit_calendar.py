@@ -23,9 +23,20 @@ HEADERS = [
     "source_url",
     "review_status",
 ]
-MULTI_HEADERS = [
+MASS_FORM_HEADERS = [
     "date",
     "calendar_scope",
+    "form_id",
+    "label",
+    "sort_order",
+    "is_default",
+    "source_url",
+    "review_status",
+]
+MASS_READING_HEADERS = [
+    "date",
+    "calendar_scope",
+    "form_id",
     "sequence",
     "role",
     "selection_rule",
@@ -92,30 +103,48 @@ def save(path: Path, rows: list[dict[str, str]]) -> None:
         writer.writerows(rows)
 
 
-def audit_multi(path: Path) -> None:
-    if not path.exists():
+def audit_mass_forms(forms_path: Path, readings_path: Path) -> None:
+    if not forms_path.exists() and not readings_path.exists():
         return
-    with path.open(newline="", encoding="utf-8") as stream:
-        reader = csv.DictReader(stream)
-        if reader.fieldnames != MULTI_HEADERS:
-            raise ValueError(f"{path}: unexpected multi-reading CSV header")
-        rows = list(reader)
-    grouped: dict[tuple[str, str], list[dict[str, str]]] = {}
-    for row in rows:
+    with forms_path.open(newline="", encoding="utf-8") as stream:
+        form_reader = csv.DictReader(stream)
+        if form_reader.fieldnames != MASS_FORM_HEADERS:
+            raise ValueError(f"{forms_path}: unexpected mass-form CSV header")
+        forms = list(form_reader)
+    with readings_path.open(newline="", encoding="utf-8") as stream:
+        reading_reader = csv.DictReader(stream)
+        if reading_reader.fieldnames != MASS_READING_HEADERS:
+            raise ValueError(f"{readings_path}: unexpected mass-reading CSV header")
+        readings = list(reading_reader)
+    form_keys = {(row["date"], row["calendar_scope"], row["form_id"]) for row in forms}
+    form_groups: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in forms:
+        form_groups.setdefault((row["date"], row["calendar_scope"]), []).append(row)
+    for day, day_forms in sorted(form_groups.items()):
+        if sum(row["is_default"] == "1" for row in day_forms) != 1:
+            raise ValueError(f"{forms_path}: expected one default form for {day}")
+    reading_groups: dict[tuple[str, str, str], list[dict[str, str]]] = {}
+    for row in readings:
+        if (row["date"], row["calendar_scope"], row["form_id"]) not in form_keys:
+            raise ValueError(f"{readings_path}: unknown mass form: {row}")
         if int(row["sequence"]) < 1:
-            raise ValueError(f"{path}: sequence must be positive: {row}")
+            raise ValueError(f"{readings_path}: sequence must be positive: {row}")
         if row["selection_rule"] not in {"obligatory", "optional"}:
-            raise ValueError(f"{path}: invalid selection rule: {row}")
+            raise ValueError(f"{readings_path}: invalid selection rule: {row}")
         if not row["reading_citation"]:
-            raise ValueError(f"{path}: reading citation is blank: {row}")
-        grouped.setdefault((row["date"], row["calendar_scope"]), []).append(row)
-    for day, day_rows in sorted(grouped.items()):
+            raise ValueError(f"{readings_path}: reading citation is blank: {row}")
+        reading_groups.setdefault(
+            (row["date"], row["calendar_scope"], row["form_id"]), []
+        ).append(row)
+    for day, day_rows in sorted(reading_groups.items()):
         sequences = sorted(int(row["sequence"]) for row in day_rows)
         if sequences != list(range(1, len(sequences) + 1)):
-            raise ValueError(f"{path}: sequences are not contiguous for {day}")
+            raise ValueError(f"{readings_path}: sequences are not contiguous for {day}")
         if len(sequences) != len(set(sequences)):
-            raise ValueError(f"{path}: duplicate sequence for {day}")
-        print(f"{path}: {day[0]} has {len(day_rows)} ordered readings")
+            raise ValueError(f"{readings_path}: duplicate sequence for {day}")
+        print(
+            f"{readings_path}: {day[0]} {day[2]} has {len(day_rows)} ordered readings"
+        )
 
 
 def audit(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
@@ -196,7 +225,10 @@ def main() -> None:
             save(path, rows)
             print(f"repaired_safe_shifts={repaired}")
         print_report(path, audit(rows))
-    audit_multi(Path("content/calendar/multi_readings.csv"))
+    audit_mass_forms(
+        Path("content/calendar/mass_forms.csv"),
+        Path("content/calendar/mass_readings.csv"),
+    )
 
 
 if __name__ == "__main__":

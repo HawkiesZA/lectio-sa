@@ -17,8 +17,11 @@ interface ContentDao {
     @Query("SELECT * FROM calendar_day WHERE date = :date AND calendar_scope = :scope LIMIT 1")
     suspend fun day(date: String, scope: String): CalendarDayEntity?
 
-    @Query("SELECT * FROM reading_assignment WHERE date = :date AND calendar_scope = :scope ORDER BY sequence, id")
-    suspend fun assignments(date: String, scope: String): List<ReadingAssignmentEntity>
+    @Query("SELECT * FROM mass_form WHERE date = :date AND calendar_scope = :scope ORDER BY sort_order, form_id")
+    suspend fun forms(date: String, scope: String): List<MassFormEntity>
+
+    @Query("SELECT * FROM reading_assignment WHERE date = :date AND calendar_scope = :scope AND mass_form_id = :formId ORDER BY sequence, id")
+    suspend fun assignments(date: String, scope: String, formId: String): List<ReadingAssignmentEntity>
 
     @Query(
         "SELECT * FROM verse_unit WHERE edition_id = :editionId AND book_code = :book " +

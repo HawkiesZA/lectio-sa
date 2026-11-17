@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -84,9 +87,10 @@ private fun LectioSaApp() {
     val dailyContentViewModel: za.co.hawkiesza.lectiosa.content.DailyContentViewModel = viewModel()
     val dailyContent by dailyContentViewModel.content.collectAsState()
     var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var selectedMassFormId by rememberSaveable { mutableStateOf("") }
     val date = LocalDate.parse(selectedDate)
     val displayDate = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
-    LaunchedEffect(selectedDate) { dailyContentViewModel.load(selectedDate) }
+    LaunchedEffect(selectedDate, selectedMassFormId) { dailyContentViewModel.load(selectedDate, selectedMassFormId) }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -121,14 +125,21 @@ private fun LectioSaApp() {
                     DateNavigation(
                         displayDate = displayDate,
                         isToday = date == LocalDate.now(),
-                        onPrevious = { selectedDate = date.minusDays(1).toString() },
-                        onNext = { selectedDate = date.plusDays(1).toString() },
-                        onToday = { selectedDate = LocalDate.now().toString() },
+                        onPrevious = { selectedDate = date.minusDays(1).toString(); selectedMassFormId = "" },
+                        onNext = { selectedDate = date.plusDays(1).toString(); selectedMassFormId = "" },
+                        onToday = { selectedDate = LocalDate.now().toString(); selectedMassFormId = "" },
                     )
                     Spacer(Modifier.height(16.dp))
                     when (val state = dailyContent) {
                         is za.co.hawkiesza.lectiosa.content.DailyContentState.Available -> {
                             Text(state.celebration, style = MaterialTheme.typography.titleMedium)
+                            if (state.forms.size > 1) {
+                                MassFormPicker(
+                                    forms = state.forms,
+                                    selectedFormId = state.selectedFormId,
+                                    onSelect = { selectedMassFormId = it },
+                                )
+                            }
                             if (state.reviewStatus != "reviewed") {
                                 Text("Development data: calendar review pending", color = MaterialTheme.colorScheme.primary)
                             }
@@ -191,6 +202,30 @@ private fun DateNavigation(
         }
         IconButton(onClick = onNext) {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next day")
+        }
+    }
+}
+
+@Composable
+private fun MassFormPicker(
+    forms: List<za.co.hawkiesza.lectiosa.content.AvailableMassForm>,
+    selectedFormId: String,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val selected = forms.firstOrNull { it.id == selectedFormId } ?: forms.first()
+    Box {
+        Button(onClick = { expanded = true }) { Text("Mass: ${selected.label}") }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            forms.forEach { form ->
+                DropdownMenuItem(
+                    text = { Text(form.label) },
+                    onClick = {
+                        expanded = false
+                        onSelect(form.id)
+                    },
+                )
+            }
         }
     }
 }

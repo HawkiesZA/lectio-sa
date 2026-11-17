@@ -62,6 +62,30 @@ data class CalendarDayEntity(
 )
 
 @Entity(
+    tableName = "mass_form",
+    primaryKeys = ["date", "calendarScope", "formId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = CalendarDayEntity::class,
+            parentColumns = ["date", "calendar_scope"],
+            childColumns = ["date", "calendar_scope"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("date", "calendar_scope", "sortOrder")],
+)
+data class MassFormEntity(
+    val date: String,
+    @androidx.room.ColumnInfo(name = "calendar_scope") val calendarScope: String,
+    @androidx.room.ColumnInfo(name = "form_id") val formId: String,
+    val label: String,
+    @androidx.room.ColumnInfo(name = "sort_order") val sortOrder: Int,
+    @androidx.room.ColumnInfo(name = "is_default") val isDefault: Int,
+    @androidx.room.ColumnInfo(name = "source_url") val sourceUrl: String,
+    @androidx.room.ColumnInfo(name = "review_status") val reviewStatus: String,
+)
+
+@Entity(
     tableName = "reading_assignment",
     foreignKeys = [
         ForeignKey(
@@ -71,12 +95,13 @@ data class CalendarDayEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("date", "calendar_scope", "sequence")],
+    indices = [Index("date", "calendar_scope", "mass_form_id", "sequence")],
 )
 data class ReadingAssignmentEntity(
     @androidx.room.PrimaryKey val id: Long,
     val date: String,
     @androidx.room.ColumnInfo(name = "calendar_scope") val calendarScope: String,
+    @androidx.room.ColumnInfo(name = "mass_form_id") val massFormId: String,
     val sequence: Int,
     val role: String,
     @androidx.room.ColumnInfo(name = "mass_form") val massForm: String,

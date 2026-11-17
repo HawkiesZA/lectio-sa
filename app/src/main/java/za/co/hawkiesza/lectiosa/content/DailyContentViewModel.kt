@@ -22,12 +22,19 @@ data class ResolvedAlternative(
     val text: String,
 )
 
+data class AvailableMassForm(
+    val id: String,
+    val label: String,
+)
+
 sealed interface DailyContentState {
     data object Loading : DailyContentState
     data object Unavailable : DailyContentState
     data class Available(
         val celebration: String,
         val reviewStatus: String,
+        val forms: List<AvailableMassForm>,
+        val selectedFormId: String,
         val readings: List<ResolvedReading>,
     ) : DailyContentState
 }
@@ -37,7 +44,7 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
     private val _content = MutableStateFlow<DailyContentState>(DailyContentState.Unavailable)
     val content: StateFlow<DailyContentState> = _content
 
-    fun load(date: String) {
+    fun load(date: String, requestedFormId: String = "") {
         _content.value = DailyContentState.Loading
         viewModelScope.launch(Dispatchers.IO) {
             val dao = database.contentDao()
@@ -46,7 +53,15 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
                 _content.value = DailyContentState.Unavailable
                 return@launch
             }
-            val readings = dao.assignments(date, "SACBC").map { assignment ->
+            val forms = dao.forms(date, "SACBC")
+            val selectedForm = forms.firstOrNull { it.formId == requestedFormId }
+                ?: forms.firstOrNull { it.isDefault == 1 }
+                ?: forms.firstOrNull()
+            if (selectedForm == null) {
+                _content.value = DailyContentState.Unavailable
+                return@launch
+            }
+            val readings = dao.assignments(date, "SACBC", selectedForm.formId).map { assignment ->
                 val alternatives = splitAlternatives(assignment.originalCitation).map { alternative ->
                     ResolvedAlternative(
                         citation = alternative,
@@ -71,7 +86,13 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
                     reviewStatus = assignment.reviewStatus,
                 )
             }
-            _content.value = DailyContentState.Available(day.celebration, day.reviewStatus, readings)
+            _content.value = DailyContentState.Available(
+                celebration = day.celebration,
+                reviewStatus = day.reviewStatus,
+                forms = forms.map { AvailableMassForm(it.formId, it.label) },
+                selectedFormId = selectedForm.formId,
+                readings = readings,
+            )
         }
     }
 

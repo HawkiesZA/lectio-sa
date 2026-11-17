@@ -9,7 +9,8 @@ class MainTest {
     fun sampleCalendarFilesArePresent() {
         assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/2026.csv")))
         assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/2027.csv")))
-        assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/multi_readings.csv")))
+        assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/mass_forms.csv")))
+        assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/mass_readings.csv")))
     }
 
     @Test
