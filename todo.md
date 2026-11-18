@@ -23,7 +23,7 @@ This checklist tracks the implementation plan against the current prototype.
 
 ## Next: app features
 
-- [ ] Add month calendar/date-picker navigation and supported-date-range display.
+- [x] Add month calendar/date-picker navigation and supported-date-range display.
 - [ ] Add About and Sources screens with edition, attribution, provenance, and coverage details.
 - [ ] Add Settings for system/light/dark theme, text size, and optional verse numbers.
 - [ ] Add DataStore preferences and remembered reading position.

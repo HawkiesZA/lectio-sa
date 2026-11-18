@@ -28,8 +28,11 @@ class BundledContentDatabaseTest {
         try {
             val dao = database.contentDao()
             val days = dao.allDays()
+            val range = dao.calendarDateRange("SACBC").toSupportedDateRangeOrNull()
 
             assertEquals(730, days.size)
+            assertEquals(LocalDate.parse("2026-01-01"), range?.start)
+            assertEquals(LocalDate.parse("2027-12-31"), range?.end)
             assertEquals(730, days.map { it.date to it.calendarScope }.toSet().size)
             days.forEach { day ->
                 val parsedDate = LocalDate.parse(day.date)

@@ -11,6 +11,12 @@ interface ContentDao {
     @Query("SELECT COUNT(*) FROM calendar_day")
     suspend fun calendarDayCount(): Int
 
+    @Query(
+        "SELECT MIN(date) AS minDate, MAX(date) AS maxDate " +
+            "FROM calendar_day WHERE calendar_scope = :scope",
+    )
+    suspend fun calendarDateRange(scope: String): CalendarDateRange
+
     @Query("SELECT * FROM content_metadata ORDER BY key")
     suspend fun metadata(): List<ContentMetadataEntity>
 
