@@ -104,6 +104,14 @@ class DailyContentViewModelTest {
     }
 
     @Test
+    fun psalmVerseLinesRemainSeparateForDisplay() {
+        assertEquals(
+            listOf("First psalm verse", "Second psalm verse", "Third psalm verse"),
+            psalmVerseLines(listOf("First psalm verse", "Second psalm verse", "Third psalm verse")),
+        )
+    }
+
+    @Test
     fun doesNotDuplicateNumericBookName() {
         assertEquals(
             listOf("3 John 1:5-8"),

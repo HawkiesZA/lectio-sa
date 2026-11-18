@@ -22,6 +22,12 @@ data class ResolvedAlternative(
     val text: String,
     val fallbackNotice: String? = null,
     val exceptionNotice: String? = null,
+    val verseLines: List<String> = emptyList(),
+)
+
+private data class CitationResolution(
+    val text: String?,
+    val verseLines: List<String>,
 )
 
 data class AvailableMassForm(
@@ -65,22 +71,24 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
             }
             val readings = dao.assignments(date, "SACBC", selectedForm.formId).map { assignment ->
                 val alternatives = splitAlternatives(assignment.originalCitation).map { alternative ->
-                    val resolvedText = resolveCitation(dao, alternative)
+                    val resolution = resolveCitation(dao, alternative)
                     ResolvedAlternative(
                         citation = alternative,
-                        text = resolvedText ?: "Passage mapping pending for $alternative",
-                        fallbackNotice = resolvedText?.let { partialVerseFallbackNotice(alternative) },
+                        text = resolution.text ?: "Passage mapping pending for $alternative",
+                        fallbackNotice = resolution.text?.let { partialVerseFallbackNotice(alternative) },
                         exceptionNotice = exceptionNotice(dao, alternative),
+                        verseLines = resolution.verseLines,
                     )
                 }
                 val pairedPsalmAlternatives = splitAlternatives(assignment.pairedPsalmCitation)
                     .map { alternative ->
-                        val resolvedText = resolveCitation(dao, alternative)
+                        val resolution = resolveCitation(dao, alternative)
                         ResolvedAlternative(
                             citation = alternative,
-                            text = resolvedText ?: "Passage mapping pending for $alternative",
-                            fallbackNotice = resolvedText?.let { partialVerseFallbackNotice(alternative) },
+                            text = resolution.text ?: "Passage mapping pending for $alternative",
+                            fallbackNotice = resolution.text?.let { partialVerseFallbackNotice(alternative) },
                             exceptionNotice = exceptionNotice(dao, alternative),
+                            verseLines = resolution.verseLines,
                         )
                     }
                 ResolvedReading(
@@ -102,8 +110,8 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private suspend fun resolveCitation(dao: ContentDao, citation: String): String? {
-        val parsed = parseCitation(citation) ?: return null
+    private suspend fun resolveCitation(dao: ContentDao, citation: String): CitationResolution {
+        val parsed = parseCitation(citation) ?: return CitationResolution(null, emptyList())
         val book = bookAliasesForParsing.getValue(parsed.alias)
         val output = buildList {
             for (span in parsed.spans) {
@@ -134,7 +142,11 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
                 }
             }
         }
-        return output.joinToString(" ") { it.text }.ifBlank { null }
+        val text = output.joinToString(" ") { it.text }.ifBlank { null }
+        return CitationResolution(
+            text = text,
+            verseLines = if (book == "Psalms") psalmVerseLines(output.map { it.text }) else emptyList(),
+        )
     }
 
     private suspend fun exceptionNotice(dao: ContentDao, citation: String): String? {
@@ -215,6 +227,8 @@ internal fun partialVerseFallbackNotice(citation: String): String? =
     } else {
         null
     }
+
+internal fun psalmVerseLines(texts: List<String>): List<String> = texts
 
 internal fun parseCitation(citation: String): ParsedCitation? {
     val normalizedCitation = normalizeSpecialCitation(citation)

@@ -64,6 +64,7 @@ private data class ReadingAlternative(
     val text: String,
     val fallbackNotice: String? = null,
     val exceptionNotice: String? = null,
+    val verseLines: List<String> = emptyList(),
 )
 
 private val sampleReadings = listOf(
@@ -164,10 +165,10 @@ private fun LectioSaApp() {
                                             else -> reading.role.replace('_', ' ').replaceFirstChar { it.uppercase() }
                                         },
                                         alternatives = reading.alternatives.map { alternative ->
-                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice)
+                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice, alternative.verseLines)
                                         },
                                         pairedPsalmAlternatives = reading.pairedPsalmAlternatives.map { alternative ->
-                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice)
+                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice, alternative.verseLines)
                                         },
                                         selectionRule = reading.selectionRule,
                                     ),
@@ -267,7 +268,7 @@ private fun ReadingCard(reading: Reading) {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-            Text(selectedAlternative.text, style = MaterialTheme.typography.bodyLarge)
+            PassageBody(selectedAlternative)
             if (reading.pairedPsalmAlternatives.isNotEmpty()) {
                 val selectedPsalm = reading.pairedPsalmAlternatives[psalmAlternativeIndex.coerceIn(0, reading.pairedPsalmAlternatives.lastIndex)]
                 Spacer(Modifier.height(16.dp))
@@ -283,7 +284,20 @@ private fun ReadingCard(reading: Reading) {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                Text(selectedPsalm.text, style = MaterialTheme.typography.bodyLarge)
+                PassageBody(selectedPsalm)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PassageBody(alternative: ReadingAlternative) {
+    if (alternative.verseLines.isEmpty()) {
+        Text(alternative.text, style = MaterialTheme.typography.bodyLarge)
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            alternative.verseLines.forEach { line ->
+                Text(line, style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
