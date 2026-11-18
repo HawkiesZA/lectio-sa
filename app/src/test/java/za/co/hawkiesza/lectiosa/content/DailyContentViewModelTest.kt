@@ -45,6 +45,15 @@ class DailyContentViewModelTest {
     }
 
     @Test
+    fun identifiesPartialVerseSelectorsForWholeVerseFallback() {
+        assertEquals(
+            "Whole verse included; the calendar selects part of this verse.",
+            partialVerseFallbackNotice("Isa 12:2-3 4bcd 5-6"),
+        )
+        assertEquals(null, partialVerseFallbackNotice("Ps 78:56-57 58-59 61-62"))
+    }
+
+    @Test
     fun parsesExodusAbbreviationUsedByMultiReadings() {
         assertEquals(
             ParsedCitation("Exod", listOf(CitationSpan(14, 15, null), CitationSpan(15, 1, 1))),

@@ -20,6 +20,7 @@ data class ResolvedReading(
 data class ResolvedAlternative(
     val citation: String,
     val text: String,
+    val fallbackNotice: String? = null,
 )
 
 data class AvailableMassForm(
@@ -63,18 +64,20 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
             }
             val readings = dao.assignments(date, "SACBC", selectedForm.formId).map { assignment ->
                 val alternatives = splitAlternatives(assignment.originalCitation).map { alternative ->
+                    val resolvedText = resolveCitation(dao, alternative)
                     ResolvedAlternative(
                         citation = alternative,
-                        text = resolveCitation(dao, alternative)
-                            ?: "Passage mapping pending for $alternative",
+                        text = resolvedText ?: "Passage mapping pending for $alternative",
+                        fallbackNotice = resolvedText?.let { partialVerseFallbackNotice(alternative) },
                     )
                 }
                 val pairedPsalmAlternatives = splitAlternatives(assignment.pairedPsalmCitation)
                     .map { alternative ->
+                        val resolvedText = resolveCitation(dao, alternative)
                         ResolvedAlternative(
                             citation = alternative,
-                            text = resolveCitation(dao, alternative)
-                                ?: "Passage mapping pending for $alternative",
+                            text = resolvedText ?: "Passage mapping pending for $alternative",
+                            fallbackNotice = resolvedText?.let { partialVerseFallbackNotice(alternative) },
                         )
                     }
                 ResolvedReading(
@@ -156,6 +159,16 @@ internal fun splitAlternatives(citation: String): List<String> =
 internal data class CitationSpan(val chapter: Int, val start: Int, val end: Int?)
 
 internal data class ParsedCitation(val alias: String, val spans: List<CitationSpan>)
+
+internal fun partialVerseFallbackNotice(citation: String): String? =
+    if (citation.split(Regex("\\s+"))
+            .flatMap { it.replace('&', '+').split('+') }
+            .any { Regex("\\d+[a-z]+", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+    ) {
+        "Whole verse included; the calendar selects part of this verse."
+    } else {
+        null
+    }
 
 internal fun parseCitation(citation: String): ParsedCitation? {
     val alias = bookAliasesForParsing.keys
