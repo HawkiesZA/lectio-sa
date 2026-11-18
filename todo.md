@@ -6,7 +6,7 @@ This checklist tracks the implementation plan against the current prototype.
 
 - [x] Android app foundation with package `za.co.hawkiesza.lectiosa`, app icon, API 26 minimum, and API 37 target.
 - [x] Compose/Material 3 offline reading screen.
-- [x] Room/SQLite bundled content database with schema migrations through version 3.
+- [x] Room/SQLite bundled content database with schema migrations through version 4, including documented content exceptions.
 - [x] WEB Catholic SWORD import, normalisation, rendering, validation, and database compilation.
 - [x] Psalm boundary audit and source overlays, including the 62 affected Psalms found in the SWORD export.
 - [x] Reviewed 2026 and 2027 South African calendar coverage.
@@ -16,7 +16,7 @@ This checklist tracks the implementation plan against the current prototype.
 
 ## Next: content correctness
 
-- [x] Add a strict automated validation pass proving every calendar citation resolves in the WEB source used for the bundled database.
+- [x] Add a strict automated validation pass proving every calendar citation resolves in the WEB source used for the bundled database or has a reviewed edition/source exception.
 - [x] Preserve and detect partial-verse selectors (`a`, `b`, `bc`, etc.) and show a compact whole-verse fallback notice when the full boundary verse is displayed.
 - [ ] Test every 2026/2027 date, alternative, cross-chapter citation, and Mass form.
 - [ ] Confirm calendar provenance and redistribution rights before public release.

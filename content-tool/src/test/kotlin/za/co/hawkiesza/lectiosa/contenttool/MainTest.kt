@@ -207,6 +207,25 @@ class MainTest {
     }
 
     @Test
+    fun calendarValidationReportsDatesWithNoReadingsWithoutFailing() {
+        val directory = Files.createTempDirectory("lectio-no-readings-test")
+        val rendered = directory.resolve("rendered.tsv")
+        val calendar = directory.resolve("calendar")
+        Files.createDirectories(calendar)
+        Files.writeString(rendered, "book\tchapter\tverse\ttext\tosis_fragment\n")
+        Files.writeString(
+            calendar.resolve("2026.csv"),
+            "date,calendar_scope,celebration,rank,liturgical_colour,mass_form,first_reading,psalm,second_reading,gospel,source_url,review_status\n" +
+                "2026-09-15,SACBC,Our Lady of Sorrows,Memorial,white,Mass of the memorial.,,,,,https://ordo.jesuitssouthern.africa/ordo_full.php,reviewed\n",
+        )
+
+        val report = validateCalendar(rendered, calendar)
+
+        assertTrue(report.failures.isEmpty())
+        assertEquals(listOf("2026-09-15/SACBC"), report.noReadingDates)
+    }
+
+    @Test
     fun calendarValidationAcceptsOnlyDocumentedContentExceptions() {
         val directory = Files.createTempDirectory("lectio-content-exception-test")
         val rendered = directory.resolve("rendered.tsv")

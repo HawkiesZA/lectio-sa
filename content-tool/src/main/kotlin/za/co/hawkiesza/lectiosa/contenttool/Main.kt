@@ -4,6 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.LocalDate
+import java.time.Year
 
 private const val EXPECTED_COLUMNS =
     "date,calendar_scope,celebration,rank,liturgical_colour,mass_form,first_reading,psalm,second_reading,gospel,source_url,review_status"
@@ -329,15 +330,24 @@ private fun validateBooks(path: Path) {
 }
 
 internal data class CalendarValidationReport(
+    val datesChecked: Int,
+    val formsChecked: Int,
     val assignmentsChecked: Int,
     val alternativesChecked: Int,
+    val crossChapterCitations: Int,
+    val noReadingDates: List<String>,
     val partialVerseFallbacks: Int,
     val documentedExceptions: Int,
     val failures: List<String>,
 ) {
     fun requireValid() {
+        println("calendar_dates=$datesChecked")
+        println("calendar_forms=$formsChecked")
         println("calendar_assignments=$assignmentsChecked")
         println("calendar_alternatives=$alternativesChecked")
+        println("cross_chapter_citations=$crossChapterCitations")
+        println("calendar_no_readings=${noReadingDates.size}")
+        noReadingDates.forEach { println("NO_READINGS $it") }
         println("partial_verse_fallbacks=$partialVerseFallbacks")
         println("documented_exceptions=$documentedExceptions")
         println("calendar_failures=${failures.size}")
@@ -367,6 +377,13 @@ private data class ParsedSourceCitation(
 private data class ContentExceptionKey(val book: String, val chapter: Int, val verse: Int)
 
 private data class SourceSpanValidation(val message: String?, val documentedExceptions: Int)
+
+private data class CalendarStructureReport(
+    val datesChecked: Int,
+    val formsChecked: Int,
+    val noReadingDates: List<String>,
+    val failures: List<String>,
+)
 
 // Catholic lectionary Psalm numbering versus the WEB/SWORD verse labels.
 // These are explicit because the offset is not uniform across all Psalms.
@@ -398,12 +415,14 @@ private val citationBookAliases = mapOf(
 
 internal fun validateCalendar(renderedPath: Path, calendarDir: Path): CalendarValidationReport {
     val verseIndex = readVerseIndex(renderedPath)
+    val structure = validateCalendarStructure(calendarDir)
     val citations = readCalendarCitations(calendarDir)
     val exceptions = readContentExceptions(calendarDir)
     val failures = mutableListOf<String>()
     var alternativesChecked = 0
     var partialVerseFallbacks = 0
     var documentedExceptions = 0
+    var crossChapterCitations = 0
 
     citations.forEach { input ->
         splitCitationAlternatives(input.citation).forEach { alternative ->
@@ -416,6 +435,7 @@ internal fun validateCalendar(renderedPath: Path, calendarDir: Path): CalendarVa
             }
             val parsed = parsedResult.getOrThrow()
             partialVerseFallbacks += parsed.partialVerseCount
+            crossChapterCitations += parsed.spans.zipWithNext().count { (first, second) -> first.chapter != second.chapter }
             parsed.spans.forEach { span ->
                 val book = citationBookAliases.getValue(alternativeBookAlias(alternative))
                 val validation = validateSourceSpan(verseIndex, book, span, exceptions)
@@ -428,13 +448,123 @@ internal fun validateCalendar(renderedPath: Path, calendarDir: Path): CalendarVa
     }
 
     val report = CalendarValidationReport(
+        datesChecked = structure.datesChecked,
+        formsChecked = structure.formsChecked,
         assignmentsChecked = citations.size,
         alternativesChecked = alternativesChecked,
+        crossChapterCitations = crossChapterCitations,
+        noReadingDates = structure.noReadingDates,
         partialVerseFallbacks = partialVerseFallbacks,
         documentedExceptions = documentedExceptions,
-        failures = failures,
+        failures = structure.failures + failures,
     )
     return report
+}
+
+private fun validateCalendarStructure(calendarDir: Path): CalendarStructureReport {
+    val failures = mutableListOf<String>()
+    val calendarPaths = (2026..2027).map { calendarDir.resolve("$it.csv") }
+    val calendarRows = mutableListOf<Pair<Path, List<String>>>()
+    calendarPaths.filter { Files.exists(it) }.forEach { path ->
+        Files.readAllLines(path).drop(1).forEachIndexed { index, line ->
+            if (line.isBlank()) return@forEachIndexed
+            val fields = parseCsvLine(line)
+            if (fields.size != 12) {
+                failures += "$path:${index + 2}: calendar row must contain 12 fields"
+            } else {
+                calendarRows += path to fields
+            }
+        }
+    }
+    val strictCoverage = calendarPaths.all { Files.exists(it) }
+    val calendarKeys = calendarRows.map { it.second[0] to it.second[1] }
+    calendarKeys.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.forEach { duplicate ->
+        failures += "duplicate calendar day: ${duplicate.first}/${duplicate.second}"
+    }
+    calendarRows.forEach { (path, fields) ->
+        val date = runCatching { LocalDate.parse(fields[0]) }.getOrNull()
+        if (date == null) {
+            failures += "$path: invalid calendar date '${fields[0]}'"
+        } else {
+            val expectedYear = path.fileName.toString().substringBefore('.').toInt()
+            if (date.year != expectedYear) failures += "$path: date ${fields[0]} is outside $expectedYear"
+        }
+    }
+    if (strictCoverage) {
+        (2026..2027).forEach { year ->
+            val expected = (1..Year.of(year).length()).map { day ->
+                LocalDate.ofYearDay(year, day).toString() to "SACBC"
+            }.toSet()
+            val actual = calendarKeys.filter { key -> key.first.startsWith("$year-") }.toSet()
+            (expected - actual).forEach { missing -> failures += "missing calendar day: ${missing.first}/${missing.second}" }
+            (actual - expected).forEach { unexpected -> failures += "unexpected calendar day: ${unexpected.first}/${unexpected.second}" }
+        }
+    }
+
+    val formsPath = calendarDir.resolve("mass_forms.csv")
+    val hasFormCatalog = Files.exists(formsPath)
+    val formRows = if (Files.exists(formsPath)) {
+        val lines = Files.readAllLines(formsPath)
+        if (lines.firstOrNull() != "date,calendar_scope,form_id,label,sort_order,is_default,source_url,review_status") {
+            failures += "$formsPath: unexpected header"
+            emptyList()
+        } else lines.drop(1).filter(String::isNotBlank).mapNotNull { line ->
+            val fields = parseCsvLine(line)
+            if (fields.size != 8) {
+                failures += "$formsPath: mass-form row must contain 8 fields"
+                null
+            } else fields
+        }
+    } else emptyList()
+    val explicitFormKeys = formRows.map { Triple(it[0], it[1], it[2]) }
+    explicitFormKeys.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.forEach { duplicate ->
+        failures += "duplicate Mass form: ${duplicate.first}/${duplicate.second}/${duplicate.third}"
+    }
+    formRows.groupBy { it[0] to it[1] }.forEach { (day, rows) ->
+        if (rows.count { it[5] == "1" } != 1) failures += "Mass form group must have exactly one default: $day"
+        val sortOrders = rows.mapNotNull { it[4].toIntOrNull() }.sorted()
+        if (sortOrders != (1..rows.size).toList()) failures += "Mass form sort orders are not contiguous: $day"
+        if ((day.first to day.second) !in calendarKeys) failures += "Mass form references unknown calendar day: $day"
+    }
+
+    val readingsPath = calendarDir.resolve("mass_readings.csv")
+    val readingRows = if (Files.exists(readingsPath)) {
+        Files.readAllLines(readingsPath).drop(1).filter(String::isNotBlank).mapNotNull { line ->
+            val fields = parseCsvLine(line)
+            if (fields.size != 10) {
+                failures += "$readingsPath: mass-reading row must contain 10 fields"
+                null
+            } else fields
+        }
+    } else emptyList()
+    readingRows.groupBy { Triple(it[0], it[1], it[2]) }.forEach { (form, rows) ->
+        if (hasFormCatalog && form !in explicitFormKeys) failures += "Mass reading references unknown form: $form"
+        val sequences = rows.mapNotNull { it[3].toIntOrNull() }.sorted()
+        if (sequences != (1..rows.size).toList()) failures += "Mass reading sequences are not contiguous: $form"
+    }
+    val implicitFormKeys = calendarRows.map { (path, fields) ->
+        Triple(fields[0], fields[1], "default")
+    }.filterNot { it in explicitFormKeys }
+    val allForms = if (hasFormCatalog) {
+        (explicitFormKeys + implicitFormKeys).distinct()
+    } else {
+        readingRows.map { Triple(it[0], it[1], it[2]) }.distinct().ifEmpty { implicitFormKeys }
+    }
+    val noReadingDates = mutableSetOf<String>()
+    allForms.groupBy { it.first to it.second }.forEach { (day, forms) ->
+        val assignments = if (forms.any { it.third != "default" }) {
+            readingRows.count { it[0] == day.first && it[1] == day.second && it[2] in forms.map { form -> form.third } }
+        } else {
+            calendarRows.count { it.second[0] == day.first && it.second[1] == day.second && it.second.drop(6).take(4).any(String::isNotBlank) }
+        }
+        if (assignments == 0) noReadingDates += "${day.first}/${day.second}"
+        else if (forms.any { form ->
+                form.third != "default" && readingRows.none { it[0] == day.first && it[1] == day.second && it[2] == form.third }
+            }) {
+            failures += "Mass form has no reading assignments: $day"
+        }
+    }
+    return CalendarStructureReport(calendarRows.size, allForms.size, noReadingDates.sorted(), failures)
 }
 
 private fun readContentExceptions(calendarDir: Path): Set<ContentExceptionKey> {

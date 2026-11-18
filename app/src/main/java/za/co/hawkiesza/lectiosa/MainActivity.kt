@@ -145,6 +145,13 @@ private fun LectioSaApp() {
                             if (state.reviewStatus != "reviewed") {
                                 Text("Development data: calendar review pending", color = MaterialTheme.colorScheme.primary)
                             }
+                            if (state.readings.isEmpty()) {
+                                Text(
+                                    "No readings are available for this date.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             Spacer(Modifier.height(12.dp))
                             state.readings.forEachIndexed { index, reading ->
                                 ReadingCard(
