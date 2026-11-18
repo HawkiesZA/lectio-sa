@@ -18,7 +18,7 @@ This checklist tracks the implementation plan against the current prototype.
 
 - [x] Add a strict automated validation pass proving every calendar citation resolves in the WEB source used for the bundled database or has a reviewed edition/source exception.
 - [x] Preserve and detect partial-verse selectors (`a`, `b`, `bc`, etc.) and show a compact whole-verse fallback notice when the full boundary verse is displayed.
-- [ ] Test every 2026/2027 date, alternative, cross-chapter citation, and Mass form.
+- [x] Test every 2026/2027 date, alternative, cross-chapter citation, and Mass form, including documented no-reading dates.
 - [ ] Confirm calendar provenance and redistribution rights before public release.
 
 ## Next: app features

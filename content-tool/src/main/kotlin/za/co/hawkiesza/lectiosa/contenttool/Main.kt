@@ -544,7 +544,7 @@ private fun validateCalendarStructure(calendarDir: Path): CalendarStructureRepor
     }
     val implicitFormKeys = calendarRows.map { (path, fields) ->
         Triple(fields[0], fields[1], "default")
-    }.filterNot { it in explicitFormKeys }
+    }.filterNot { (it.first to it.second) in explicitFormKeys.map { form -> form.first to form.second }.toSet() }
     val allForms = if (hasFormCatalog) {
         (explicitFormKeys + implicitFormKeys).distinct()
     } else {
@@ -913,8 +913,8 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
                     "psalm" to fields[7],
                     "second_reading" to fields[8],
                     "gospel" to fields[9],
-                ).mapIndexed { index, (role, citation) -> index + 1 to role to citation }
-                    .filter { it.second.isNotBlank() }
+                ).filter { it.second.isNotBlank() }
+                    .mapIndexed { index, (role, citation) -> index + 1 to role to citation }
                     .forEach { (sequenceAndRole, citation) ->
                         insertAssignment(
                             fields[0], fields[1], "default", sequenceAndRole.first, sequenceAndRole.second,
