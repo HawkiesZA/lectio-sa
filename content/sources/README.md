@@ -50,7 +50,7 @@ Apply the checked-in source before compiling the database:
 ./gradlew :content-tool:run --args='--compile-db /private/tmp/engwebc2025eb-rendered-overlaid.tsv content/calendar /private/tmp/lectio-content.db'
 ```
 
-After a Room schema change, run `./gradlew :app:compileDebugKotlin` before `--compile-db`; the compiler reads the generated Room identity hash from `app/schemas/.../3.json`.
+After a Room schema change, run `./gradlew :app:compileDebugKotlin` before `--compile-db`; the compiler reads the generated Room identity hash from the current schema file under `app/schemas/...`.
 
 The overlay command requires exactly one non-empty row for every Psalm 119 verse from 1 through 176 and removes the malformed module verse rows. Record the upstream URL and SHA-256 of the TSV alongside the extract.
 
@@ -83,6 +83,24 @@ python3 content/sources/audit_psalm_boundaries.py \
 
 The checked-in overlay currently repairs 62 affected Psalms, including Psalms 78 and 119. The audit exits with status 1 when repairs are needed and status 0 when the rendered import has no missing non-empty Psalm verse rows. Its source provenance is `https://ebible.org/eng-web-c/PSA{chapter}.htm`; SHA-256 of the current combined overlay is `5f15a9be4789d08a332561088ed5c5417ea297b1cc5e3d1431b8ca626e1fdb78`.
 
+### Repairing non-Psalm SWORD boundaries
+
+The SWORD export can also merge a non-Psalm verse into the previous verse. Compare the rendered import with the publisher VPL source and generate an overlay for affected chapters:
+
+```sh
+python3 content/sources/extract_vpl.py \
+  eng-web-c_vpl/eng-web-c_vpl.txt \
+  /private/tmp/engwebc2025eb-rendered.tsv \
+  /private/tmp/engwebc2025eb-vpl-overlay.tsv
+./gradlew :content-tool:run --args='--overlay-source /private/tmp/engwebc2025eb-rendered.tsv /private/tmp/engwebc2025eb-vpl-overlay.tsv /private/tmp/engwebc2025eb-rendered-overlaid.tsv'
+```
+
+The overlay is limited to chapters where the VPL has non-empty verse rows missing from the rendered import. It replaces the affected chapter’s imported text with the publisher VPL text and records `source-override:eng-web-c-vpl` as provenance. Intentionally blank VPL verses, such as textual variants, remain unresolved and are not fabricated.
+
+The validator and app also apply explicit WEB versification mappings: Romans 16:25–27 to Romans 14:24–26, Malachi 3:19–24 to Malachi 4:1–6, Joel 4 to Joel 3, Hosea 14:10 to 14:9, Genesis 32:33 to 32:32, Jonah 2:11 to 2:10, and Zechariah 2:14–15 to 3:1–2. These mappings preserve the original calendar citation while selecting the corresponding WEB source units.
+
+Greek Esther Addition C is represented specially. The WEB Catholic VPL merges C into Esther chapter 4 beginning at WEB Esther 4:18, so `Esth C:12 14-16 23-25` maps to Esther 4:29, 31-33, and 40-42. The original Greek-addition citation remains visible in calendar data.
+
 ## Annual Ordo review extracts
 
 The year-selected Ordo form is submitted with `year=2026` or `year=2027`. The repeatable preparation script is `content/sources/scrape_ordo.py`; it writes the review-only extracts below:
@@ -110,6 +128,18 @@ Audit canonical calendar structure before compiling:
 python3 content/sources/audit_calendar.py
 python3 content/sources/audit_calendar.py --fix-safe-shifts
 ```
+
+Validate every annual and multi-reading citation against the rendered WEB verse index before compiling:
+
+```sh
+./gradlew :content-tool:run --args='--validate-calendar /private/tmp/engwebc2025eb-rendered-overlaid.tsv content/calendar'
+```
+
+This validation is also run automatically by `--compile-db`. It checks alternatives, paired Psalms, cross-chapter ranges, separated verse groups, and partial-verse selectors. Partial selectors use the approved whole-verse fallback and are counted in the report; malformed or missing references fail the build.
+
+Documented source exceptions live in `content/calendar/content_exceptions.csv`. Use them only for reviewed edition-specific omissions or source gaps; each entry is compiled into the database and shown as a small notice below the affected reading.
+
+The WEB source uses a different Psalm verse numbering convention for some Psalms. The validator/app currently record explicit offsets for Psalms 51 and 52, and otherwise use a preceding-verse fallback only when the cited verse is absent. Exact WEB verse matches remain unchanged. Parenthesized alternatives such as `Ps 40 (39):7-8` are normalized to the primary Psalm number. Psalm selectors such as `1b-e` are treated as whole-verse selections under the approved partial-verse policy.
 
 The audit only repairs unambiguous Psalm/second-reading column shifts. It also reports other likely column shifts, editorial notes, supported cross-chapter citations, and alternatives. Cross-chapter citations are informational: the Android resolver supports same-book ranges such as `John 18:1-19:42`. These findings are not data errors and do not need rewriting.
 

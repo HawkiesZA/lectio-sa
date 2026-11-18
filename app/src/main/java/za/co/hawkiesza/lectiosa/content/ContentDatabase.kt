@@ -11,12 +11,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         ContentMetadataEntity::class,
         EditionEntity::class,
+        ContentExceptionEntity::class,
         VerseUnitEntity::class,
         CalendarDayEntity::class,
         MassFormEntity::class,
         ReadingAssignmentEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class ContentDatabase : RoomDatabase() {
@@ -28,6 +29,7 @@ abstract class ContentDatabase : RoomDatabase() {
                 .createFromAsset("content/lectio-content.db")
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_3_4)
                 .build()
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -51,6 +53,13 @@ abstract class ContentDatabase : RoomDatabase() {
                 database.execSQL("DROP INDEX IF EXISTS index_reading_assignment_date_calendar_scope_sequence")
                 database.execSQL("CREATE INDEX index_reading_assignment_date_calendar_scope_mass_form_id_sequence ON reading_assignment(date, calendar_scope, mass_form_id, sequence)")
                 database.execSQL("CREATE INDEX index_mass_form_date_calendar_scope_sort_order ON mass_form(date, calendar_scope, sort_order)")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE TABLE IF NOT EXISTS content_exception (edition_id TEXT NOT NULL, book_code TEXT NOT NULL, chapter INTEGER NOT NULL, verse INTEGER NOT NULL, reason TEXT NOT NULL, notice TEXT NOT NULL, source_url TEXT NOT NULL, review_status TEXT NOT NULL, PRIMARY KEY(edition_id, book_code, chapter, verse), FOREIGN KEY(edition_id) REFERENCES edition(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_content_exception_edition_id_book_code_chapter ON content_exception(edition_id, book_code, chapter)")
             }
         }
     }

@@ -43,4 +43,15 @@ interface ContentDao {
         book: String,
         chapter: Int,
     ): List<VerseUnitEntity>
+
+    @Query(
+        "SELECT * FROM content_exception WHERE edition_id = :editionId AND book_code = :book " +
+            "AND chapter = :chapter AND verse = :verse LIMIT 1",
+    )
+    suspend fun exception(
+        editionId: String,
+        book: String,
+        chapter: Int,
+        verse: Int,
+    ): ContentExceptionEntity?
 }

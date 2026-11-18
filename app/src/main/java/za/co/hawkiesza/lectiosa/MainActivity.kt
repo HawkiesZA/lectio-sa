@@ -63,6 +63,7 @@ private data class ReadingAlternative(
     val reference: String,
     val text: String,
     val fallbackNotice: String? = null,
+    val exceptionNotice: String? = null,
 )
 
 private val sampleReadings = listOf(
@@ -156,10 +157,10 @@ private fun LectioSaApp() {
                                             else -> reading.role.replace('_', ' ').replaceFirstChar { it.uppercase() }
                                         },
                                         alternatives = reading.alternatives.map { alternative ->
-                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice)
+                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice)
                                         },
                                         pairedPsalmAlternatives = reading.pairedPsalmAlternatives.map { alternative ->
-                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice)
+                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice)
                                         },
                                         selectionRule = reading.selectionRule,
                                     ),
@@ -255,6 +256,9 @@ private fun ReadingCard(reading: Reading) {
             selectedAlternative.fallbackNotice?.let {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            selectedAlternative.exceptionNotice?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
             Text(selectedAlternative.text, style = MaterialTheme.typography.bodyLarge)
             if (reading.pairedPsalmAlternatives.isNotEmpty()) {
@@ -266,6 +270,9 @@ private fun ReadingCard(reading: Reading) {
                 AlternativeNavigation(psalmAlternativeIndex, reading.pairedPsalmAlternatives.size, { psalmAlternativeIndex-- }, { psalmAlternativeIndex++ })
                 Text(selectedPsalm.reference, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 selectedPsalm.fallbackNotice?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                selectedPsalm.exceptionNotice?.let {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

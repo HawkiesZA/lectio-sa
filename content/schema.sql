@@ -15,6 +15,19 @@ CREATE TABLE edition (
     rights_notice TEXT NOT NULL
 );
 
+CREATE TABLE content_exception (
+    edition_id TEXT NOT NULL,
+    book_code TEXT NOT NULL,
+    chapter INTEGER NOT NULL,
+    verse INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    notice TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    review_status TEXT NOT NULL,
+    PRIMARY KEY (edition_id, book_code, chapter, verse),
+    FOREIGN KEY (edition_id) REFERENCES edition(id) ON DELETE CASCADE
+);
+
 CREATE TABLE verse_unit (
     id INTEGER NOT NULL PRIMARY KEY,
     edition_id TEXT NOT NULL,
@@ -69,6 +82,9 @@ CREATE TABLE reading_assignment (
 
 CREATE INDEX index_verse_unit_edition_id_book_code_chapter_sort_order
     ON verse_unit (edition_id, book_code, chapter, sort_order);
+
+CREATE INDEX index_content_exception_edition_id_book_code_chapter
+    ON content_exception (edition_id, book_code, chapter);
 
 CREATE INDEX index_calendar_day_date_calendar_scope
     ON calendar_day (date, calendar_scope);

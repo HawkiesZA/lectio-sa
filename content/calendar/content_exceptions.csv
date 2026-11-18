@@ -1,0 +1,6 @@
+edition_id,book_code,chapter,verse,reason,notice,source_url,review_status
+web-catholic,Acts,8,37,textual_variant_omitted,Not included in this WEB edition.,https://ebible.org/eng-webc/,reviewed
+web-catholic,Luke,17,36,textual_variant_omitted,Not included in this WEB edition.,https://ebible.org/eng-webc/,reviewed
+web-catholic,Sirach,17,5,source_data_missing,Not included in the bundled WEB source.,https://ebible.org/eng-webc/,reviewed
+web-catholic,Sirach,17,9,source_data_missing,Not included in the bundled WEB source.,https://ebible.org/eng-webc/,reviewed
+web-catholic,Sirach,17,21,source_data_missing,Not included in the bundled WEB source.,https://ebible.org/eng-webc/,reviewed

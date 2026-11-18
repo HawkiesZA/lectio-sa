@@ -24,6 +24,30 @@ data class EditionEntity(
 )
 
 @Entity(
+    tableName = "content_exception",
+    primaryKeys = ["edition_id", "book_code", "chapter", "verse"],
+    foreignKeys = [
+        ForeignKey(
+            entity = EditionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["edition_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("edition_id", "book_code", "chapter")],
+)
+data class ContentExceptionEntity(
+    @androidx.room.ColumnInfo(name = "edition_id") val editionId: String,
+    @androidx.room.ColumnInfo(name = "book_code") val bookCode: String,
+    val chapter: Int,
+    val verse: Int,
+    val reason: String,
+    val notice: String,
+    @androidx.room.ColumnInfo(name = "source_url") val sourceUrl: String,
+    @androidx.room.ColumnInfo(name = "review_status") val reviewStatus: String,
+)
+
+@Entity(
     tableName = "verse_unit",
     foreignKeys = [
         ForeignKey(
