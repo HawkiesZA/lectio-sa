@@ -72,6 +72,8 @@ private data class ReadingAlternative(
     val verseLines: List<String> = emptyList(),
 )
 
+private enum class AppScreen { Daily, About, Sources }
+
 private val sampleReadings = listOf(
     Reading(
         title = "First reading",
@@ -93,11 +95,14 @@ private fun LectioSaApp() {
     val contentStatusViewModel: za.co.hawkiesza.lectiosa.content.ContentStatusViewModel = viewModel()
     val contentStatus by contentStatusViewModel.status.collectAsState()
     val supportedDateRange by contentStatusViewModel.supportedDateRange.collectAsState()
+    val contentInfoViewModel: za.co.hawkiesza.lectiosa.content.ContentInfoViewModel = viewModel()
+    val contentInfo by contentInfoViewModel.state.collectAsState()
     val dailyContentViewModel: za.co.hawkiesza.lectiosa.content.DailyContentViewModel = viewModel()
     val dailyContent by dailyContentViewModel.content.collectAsState()
     var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var selectedMassFormId by rememberSaveable { mutableStateOf("") }
     var datePickerOpen by rememberSaveable { mutableStateOf(false) }
+    var screen by rememberSaveable { mutableStateOf(AppScreen.Daily) }
     val date = LocalDate.parse(selectedDate)
     val displayDate = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
     LaunchedEffect(selectedDate, selectedMassFormId) { dailyContentViewModel.load(selectedDate, selectedMassFormId) }
@@ -106,15 +111,39 @@ private fun LectioSaApp() {
         Surface(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 topBar = {
-                    TopAppBar(title = { Text("Lectio SA") })
+                    TopAppBar(
+                        navigationIcon = {
+                            if (screen != AppScreen.Daily) {
+                                IconButton(onClick = { screen = AppScreen.Daily }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to readings")
+                                }
+                            }
+                        },
+                        title = {
+                            Text(
+                                when (screen) {
+                                    AppScreen.Daily -> "Lectio SA"
+                                    AppScreen.About -> "About Lectio SA"
+                                    AppScreen.Sources -> "Sources"
+                                },
+                            )
+                        },
+                        actions = {
+                            if (screen == AppScreen.Daily) {
+                                TextButton(onClick = { screen = AppScreen.About }) { Text("About") }
+                                TextButton(onClick = { screen = AppScreen.Sources }) { Text("Sources") }
+                            }
+                        },
+                    )
                 },
             ) { padding ->
-                Column(
-                    modifier = Modifier
-                        .padding(padding)
-                        .padding(horizontal = 20.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
+                if (screen == AppScreen.Daily) {
+                    Column(
+                        modifier = Modifier
+                            .padding(padding)
+                            .padding(horizontal = 20.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = "South African Catholic daily readings",
@@ -214,11 +243,124 @@ private fun LectioSaApp() {
                         }
                     }
                     Spacer(Modifier.height(20.dp))
+                    }
+                } else {
+                    ContentInfoScreen(
+                        modifier = Modifier.padding(padding),
+                        state = contentInfo,
+                        showSources = screen == AppScreen.Sources,
+                    )
                 }
             }
         }
     }
 }
+
+@Composable
+private fun ContentInfoScreen(
+    modifier: Modifier,
+    state: za.co.hawkiesza.lectiosa.content.ContentInfoState,
+    showSources: Boolean,
+) {
+    Column(
+        modifier = modifier
+            .padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.height(16.dp))
+        Text(if (showSources) "Sources" else "About", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(12.dp))
+        when (state) {
+            za.co.hawkiesza.lectiosa.content.ContentInfoState.Loading -> {
+                Text("Loading bundled content details…")
+            }
+            is za.co.hawkiesza.lectiosa.content.ContentInfoState.Unavailable -> {
+                Text("Content details unavailable", color = MaterialTheme.colorScheme.primary)
+                Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            is za.co.hawkiesza.lectiosa.content.ContentInfoState.Available -> {
+                if (showSources) SourcesContent(state.info) else AboutContent(state.info)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun AboutContent(info: za.co.hawkiesza.lectiosa.content.ContentInfo) {
+    Text("Lectio SA", style = MaterialTheme.typography.titleLarge)
+    Text(
+        "Offline South African Catholic daily readings with locally bundled Scripture text.",
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    Spacer(Modifier.height(20.dp))
+    DetailSection("Scripture edition") {
+        DetailRow("Edition", info.edition.displayName)
+        DetailRow("Source module", info.edition.sourceModule)
+        DetailRow("Versification", info.edition.versification)
+        DetailRow("Attribution", info.edition.attribution)
+        DetailRow("Rights", info.edition.rightsNotice)
+    }
+    Spacer(Modifier.height(16.dp))
+    DetailSection("Bundled coverage") {
+        DetailRow("Calendar", "South African national calendar")
+        info.supportedDateRange?.let {
+            DetailRow("Dates", "${formatShortDate(it.start)} – ${formatShortDate(it.end)}")
+        }
+        DetailRow("Calendar days", info.calendarDayCount.toString())
+        DetailRow("Scripture records", info.verseCount.toString())
+    }
+}
+
+@Composable
+private fun SourcesContent(info: za.co.hawkiesza.lectiosa.content.ContentInfo) {
+    Text(
+        "All readings are resolved locally from the bundled database; network access is not required.",
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    Spacer(Modifier.height(20.dp))
+    DetailSection("Scripture source") {
+        DetailRow("Edition", info.edition.displayName)
+        DetailRow("Module", info.edition.sourceModule)
+        DetailRow("Attribution", info.edition.attribution)
+        DetailRow("Rights", info.edition.rightsNotice)
+    }
+    Spacer(Modifier.height(16.dp))
+    DetailSection("Calendar source") {
+        DetailRow("Scope", "SACBC")
+        if (info.calendarSourceUrls.isEmpty()) {
+            Text("No source URL recorded", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            info.calendarSourceUrls.forEach { DetailRow("Source URL", it) }
+        }
+        info.supportedDateRange?.let {
+            DetailRow("Coverage", "${formatShortDate(it.start)} – ${formatShortDate(it.end)}")
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    DetailSection("Build metadata") {
+        info.metadata["schema_version"]?.let { DetailRow("Schema version", it) }
+        info.metadata["rendered_source_sha256"]?.let { DetailRow("Rendered source SHA-256", it) }
+    }
+}
+
+@Composable
+private fun DetailSection(title: String, content: @Composable () -> Unit) {
+    Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+    Spacer(Modifier.height(8.dp))
+    content()
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Column(Modifier.padding(bottom = 10.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun formatShortDate(date: LocalDate): String =
+    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
 
 @Composable
 private fun DateNavigation(

@@ -20,6 +20,15 @@ interface ContentDao {
     @Query("SELECT * FROM content_metadata ORDER BY key")
     suspend fun metadata(): List<ContentMetadataEntity>
 
+    @Query("SELECT * FROM edition ORDER BY id")
+    suspend fun editions(): List<EditionEntity>
+
+    @Query(
+        "SELECT DISTINCT source_url FROM calendar_day " +
+            "WHERE calendar_scope = :scope AND source_url <> '' ORDER BY source_url",
+    )
+    suspend fun calendarSourceUrls(scope: String): List<String>
+
     @Query("SELECT * FROM calendar_day WHERE date = :date AND calendar_scope = :scope LIMIT 1")
     suspend fun day(date: String, scope: String): CalendarDayEntity?
 
