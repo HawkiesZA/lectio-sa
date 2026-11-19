@@ -33,10 +33,13 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Typography
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,6 +57,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.ZoneOffset
+import za.co.hawkiesza.lectiosa.content.ResolvedVerse
+import za.co.hawkiesza.lectiosa.preferences.AppPreferences
+import za.co.hawkiesza.lectiosa.preferences.AppPreferencesViewModel
+import za.co.hawkiesza.lectiosa.preferences.AppTextSize
+import za.co.hawkiesza.lectiosa.preferences.AppThemePreference
+import za.co.hawkiesza.lectiosa.preferences.initialReadingDate
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,9 +84,10 @@ private data class ReadingAlternative(
     val fallbackNotice: String? = null,
     val exceptionNotice: String? = null,
     val verseLines: List<String> = emptyList(),
+    val verses: List<ResolvedVerse> = emptyList(),
 )
 
-private enum class AppScreen { Daily, About, Sources, Support }
+private enum class AppScreen { Daily, About, Sources, Support, Settings }
 
 private val sampleReadings = listOf(
     Reading(
@@ -102,6 +112,9 @@ private fun LectioSaApp() {
     val supportedDateRange by contentStatusViewModel.supportedDateRange.collectAsState()
     val contentInfoViewModel: za.co.hawkiesza.lectiosa.content.ContentInfoViewModel = viewModel()
     val contentInfo by contentInfoViewModel.state.collectAsState()
+    val preferencesViewModel: AppPreferencesViewModel = viewModel()
+    val storedPreferences by preferencesViewModel.preferences.collectAsState()
+    val preferences = storedPreferences ?: AppPreferences()
     val dailyContentViewModel: za.co.hawkiesza.lectiosa.content.DailyContentViewModel = viewModel()
     val dailyContent by dailyContentViewModel.content.collectAsState()
     var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
@@ -109,14 +122,40 @@ private fun LectioSaApp() {
     var datePickerOpen by rememberSaveable { mutableStateOf(false) }
     var screen by rememberSaveable { mutableStateOf(AppScreen.Daily) }
     var browserUnavailable by rememberSaveable { mutableStateOf(false) }
+    var readingPositionRestored by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = screen != AppScreen.Daily) {
         screen = AppScreen.Daily
     }
     val date = LocalDate.parse(selectedDate)
     val displayDate = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
+    LaunchedEffect(storedPreferences, supportedDateRange) {
+        val range = supportedDateRange
+        val stored = storedPreferences
+        if (!readingPositionRestored && range != null && stored != null) {
+            selectedDate = initialReadingDate(stored.rememberedDate, LocalDate.now(), range).toString()
+            selectedMassFormId = stored.rememberedMassFormId.orEmpty()
+            readingPositionRestored = true
+        }
+    }
     LaunchedEffect(selectedDate, selectedMassFormId) { dailyContentViewModel.load(selectedDate, selectedMassFormId) }
+    LaunchedEffect(dailyContent, selectedDate, selectedMassFormId, readingPositionRestored) {
+        val state = dailyContent
+        if (readingPositionRestored && state is za.co.hawkiesza.lectiosa.content.DailyContentState.Available) {
+            if (selectedMassFormId != state.selectedFormId) selectedMassFormId = state.selectedFormId
+            preferencesViewModel.setReadingPosition(selectedDate, state.selectedFormId)
+        }
+    }
 
-    MaterialTheme {
+    val darkTheme = when (preferences.theme) {
+        AppThemePreference.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+        AppThemePreference.LIGHT -> false
+        AppThemePreference.DARK -> true
+    }
+
+    MaterialTheme(
+        colorScheme = if (darkTheme) androidx.compose.material3.darkColorScheme() else androidx.compose.material3.lightColorScheme(),
+        typography = typographyFor(preferences.textSize),
+    ) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 topBar = {
@@ -135,6 +174,7 @@ private fun LectioSaApp() {
                                     AppScreen.About -> "About Lectio SA"
                                     AppScreen.Sources -> "Sources"
                                     AppScreen.Support -> "Support Lectio SA"
+                                    AppScreen.Settings -> "Settings"
                                 },
                             )
                         },
@@ -143,6 +183,7 @@ private fun LectioSaApp() {
                                 TextButton(onClick = { screen = AppScreen.About }) { Text("About") }
                                 TextButton(onClick = { screen = AppScreen.Sources }) { Text("Sources") }
                                 TextButton(onClick = { browserUnavailable = false; screen = AppScreen.Support }) { Text("Support") }
+                                TextButton(onClick = { screen = AppScreen.Settings }) { Text("Settings") }
                             }
                         },
                     )
@@ -236,13 +277,14 @@ private fun LectioSaApp() {
                                             else -> reading.role.replace('_', ' ').replaceFirstChar { it.uppercase() }
                                         },
                                         alternatives = reading.alternatives.map { alternative ->
-                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice, alternative.verseLines)
+                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice, alternative.verseLines, alternative.verses)
                                         },
                                         pairedPsalmAlternatives = reading.pairedPsalmAlternatives.map { alternative ->
-                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice, alternative.verseLines)
+                                            ReadingAlternative(alternative.citation, alternative.text, alternative.fallbackNotice, alternative.exceptionNotice, alternative.verseLines, alternative.verses)
                                         },
                                         selectionRule = reading.selectionRule,
                                     ),
+                                    showVerseNumbers = preferences.showVerseNumbers,
                                 )
                                 if (index < state.readings.lastIndex) Spacer(Modifier.height(12.dp))
                             }
@@ -270,6 +312,15 @@ private fun LectioSaApp() {
                                 }
                             },
                         )
+                    } else if (screen == AppScreen.Settings) {
+                        SettingsScreen(
+                            modifier = Modifier.padding(padding),
+                            preferences = preferences,
+                            onThemeChange = preferencesViewModel::setTheme,
+                            onTextSizeChange = preferencesViewModel::setTextSize,
+                            onShowVerseNumbersChange = preferencesViewModel::setShowVerseNumbers,
+                            onClearReadingPosition = { preferencesViewModel.clearReadingPosition() },
+                        )
                     } else {
                         ContentInfoScreen(
                             modifier = Modifier.padding(padding),
@@ -281,6 +332,131 @@ private fun LectioSaApp() {
             }
         }
     }
+}
+
+@Composable
+private fun SettingsScreen(
+    modifier: Modifier,
+    preferences: AppPreferences,
+    onThemeChange: (AppThemePreference) -> Unit,
+    onTextSizeChange: (AppTextSize) -> Unit,
+    onShowVerseNumbersChange: (Boolean) -> Unit,
+    onClearReadingPosition: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.height(16.dp))
+        Text("Settings", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(20.dp))
+        SettingsChoiceRow(
+            title = "Theme",
+            options = AppThemePreference.entries,
+            selected = preferences.theme,
+            label = { it.displayLabel() },
+            onSelect = onThemeChange,
+        )
+        Spacer(Modifier.height(20.dp))
+        SettingsChoiceRow(
+            title = "Text size",
+            options = AppTextSize.entries,
+            selected = preferences.textSize,
+            label = { it.displayLabel() },
+            onSelect = onTextSizeChange,
+        )
+        Spacer(Modifier.height(20.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(Modifier.padding(end = 16.dp)) {
+                Text("Show verse numbers", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Display the bundled verse labels before each verse.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = preferences.showVerseNumbers, onCheckedChange = onShowVerseNumbersChange)
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("Reading position", style = MaterialTheme.typography.titleMedium)
+        Text(
+            preferences.rememberedDate?.let { "Last position: $it" } ?: "No reading position saved",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (preferences.rememberedDate != null) {
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onClearReadingPosition) { Text("Clear remembered position") }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun <T> SettingsChoiceRow(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    Text(title, style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { option ->
+            FilterChip(
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                label = { Text(label(option)) },
+            )
+        }
+    }
+}
+
+private fun AppThemePreference.displayLabel(): String = when (this) {
+    AppThemePreference.SYSTEM -> "System"
+    AppThemePreference.LIGHT -> "Light"
+    AppThemePreference.DARK -> "Dark"
+}
+
+private fun AppTextSize.displayLabel(): String = when (this) {
+    AppTextSize.DEFAULT -> "Default"
+    AppTextSize.LARGE -> "Large"
+    AppTextSize.EXTRA_LARGE -> "Extra large"
+}
+
+private fun typographyFor(textSize: AppTextSize): Typography {
+    val factor = when (textSize) {
+        AppTextSize.DEFAULT -> 1f
+        AppTextSize.LARGE -> 1.15f
+        AppTextSize.EXTRA_LARGE -> 1.3f
+    }
+    val base = Typography()
+    fun androidx.compose.ui.text.TextStyle.scaled() = copy(
+        fontSize = fontSize * factor,
+        lineHeight = lineHeight * factor,
+    )
+    return base.copy(
+        displayLarge = base.displayLarge.scaled(),
+        displayMedium = base.displayMedium.scaled(),
+        displaySmall = base.displaySmall.scaled(),
+        headlineLarge = base.headlineLarge.scaled(),
+        headlineMedium = base.headlineMedium.scaled(),
+        headlineSmall = base.headlineSmall.scaled(),
+        titleLarge = base.titleLarge.scaled(),
+        titleMedium = base.titleMedium.scaled(),
+        titleSmall = base.titleSmall.scaled(),
+        bodyLarge = base.bodyLarge.scaled(),
+        bodyMedium = base.bodyMedium.scaled(),
+        bodySmall = base.bodySmall.scaled(),
+        labelLarge = base.labelLarge.scaled(),
+        labelMedium = base.labelMedium.scaled(),
+        labelSmall = base.labelSmall.scaled(),
+    )
 }
 
 @Composable
@@ -521,7 +697,7 @@ private fun MassFormPicker(
 }
 
 @Composable
-private fun ReadingCard(reading: Reading) {
+private fun ReadingCard(reading: Reading, showVerseNumbers: Boolean) {
     var alternativeIndex by rememberSaveable(reading.title, reading.alternatives.joinToString { it.reference }) {
         mutableStateOf(0)
     }
@@ -548,7 +724,7 @@ private fun ReadingCard(reading: Reading) {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-            PassageBody(selectedAlternative)
+            PassageBody(selectedAlternative, showVerseNumbers)
             if (reading.pairedPsalmAlternatives.isNotEmpty()) {
                 val selectedPsalm = reading.pairedPsalmAlternatives[psalmAlternativeIndex.coerceIn(0, reading.pairedPsalmAlternatives.lastIndex)]
                 Spacer(Modifier.height(16.dp))
@@ -564,15 +740,21 @@ private fun ReadingCard(reading: Reading) {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                PassageBody(selectedPsalm)
+                PassageBody(selectedPsalm, showVerseNumbers)
             }
         }
     }
 }
 
 @Composable
-private fun PassageBody(alternative: ReadingAlternative) {
-    if (alternative.verseLines.isEmpty()) {
+private fun PassageBody(alternative: ReadingAlternative, showVerseNumbers: Boolean) {
+    if (showVerseNumbers && alternative.verses.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            alternative.verses.forEach { verse ->
+                Text("${verse.label} ${verse.text}", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    } else if (alternative.verseLines.isEmpty()) {
         Text(alternative.text, style = MaterialTheme.typography.bodyLarge)
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

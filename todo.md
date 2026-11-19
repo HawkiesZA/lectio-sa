@@ -26,9 +26,9 @@ This checklist tracks the implementation plan against the current prototype.
 - [x] Add month calendar/date-picker navigation and supported-date-range display.
 - [x] Add About and Sources screens with edition, attribution, provenance, and coverage details.
 - [x] Add Support screen linking to the Lectio SA tipping jar.
-- [ ] Add Settings for system/light/dark theme, text size, and optional verse numbers.
+- [x] Add Settings for system/light/dark theme, text size, and optional verse numbers.
 - [x] Add DataStore preferences and settings model.
-- [ ] Wire DataStore into Settings UI and remembered reading position.
+- [x] Wire DataStore into Settings UI and remembered reading position.
 - [ ] Refresh “today” on resume and after midnight without disrupting a deliberately selected date.
 - [ ] Add a report-issue action that copies date, citation, edition, and content-version diagnostics.
 

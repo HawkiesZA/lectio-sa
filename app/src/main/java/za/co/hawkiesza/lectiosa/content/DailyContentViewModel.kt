@@ -23,11 +23,18 @@ data class ResolvedAlternative(
     val fallbackNotice: String? = null,
     val exceptionNotice: String? = null,
     val verseLines: List<String> = emptyList(),
+    val verses: List<ResolvedVerse> = emptyList(),
+)
+
+data class ResolvedVerse(
+    val label: String,
+    val text: String,
 )
 
 private data class CitationResolution(
     val text: String?,
     val verseLines: List<String>,
+    val verses: List<ResolvedVerse>,
 )
 
 data class AvailableMassForm(
@@ -78,6 +85,7 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
                         fallbackNotice = resolution.text?.let { partialVerseFallbackNotice(alternative) },
                         exceptionNotice = exceptionNotice(dao, alternative),
                         verseLines = resolution.verseLines,
+                        verses = resolution.verses,
                     )
                 }
                 val pairedPsalmAlternatives = splitAlternatives(assignment.pairedPsalmCitation)
@@ -89,6 +97,7 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
                             fallbackNotice = resolution.text?.let { partialVerseFallbackNotice(alternative) },
                             exceptionNotice = exceptionNotice(dao, alternative),
                             verseLines = resolution.verseLines,
+                            verses = resolution.verses,
                         )
                     }
                 ResolvedReading(
@@ -111,7 +120,7 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private suspend fun resolveCitation(dao: ContentDao, citation: String): CitationResolution {
-        val parsed = parseCitation(citation) ?: return CitationResolution(null, emptyList())
+        val parsed = parseCitation(citation) ?: return CitationResolution(null, emptyList(), emptyList())
         val book = bookAliasesForParsing.getValue(parsed.alias)
         val output = buildList {
             for (span in parsed.spans) {
@@ -146,6 +155,7 @@ class DailyContentViewModel(application: Application) : AndroidViewModel(applica
         return CitationResolution(
             text = text,
             verseLines = if (book == "Psalms") psalmVerseLines(output.map { it.text }) else emptyList(),
+            verses = output.map { ResolvedVerse(it.nativeVerseLabel, it.text) },
         )
     }
 
