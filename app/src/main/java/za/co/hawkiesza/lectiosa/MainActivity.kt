@@ -1,7 +1,11 @@
 package za.co.hawkiesza.lectiosa
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Bundle
+import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -72,7 +77,7 @@ private data class ReadingAlternative(
     val verseLines: List<String> = emptyList(),
 )
 
-private enum class AppScreen { Daily, About, Sources }
+private enum class AppScreen { Daily, About, Sources, Support }
 
 private val sampleReadings = listOf(
     Reading(
@@ -103,6 +108,10 @@ private fun LectioSaApp() {
     var selectedMassFormId by rememberSaveable { mutableStateOf("") }
     var datePickerOpen by rememberSaveable { mutableStateOf(false) }
     var screen by rememberSaveable { mutableStateOf(AppScreen.Daily) }
+    var browserUnavailable by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = screen != AppScreen.Daily) {
+        screen = AppScreen.Daily
+    }
     val date = LocalDate.parse(selectedDate)
     val displayDate = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
     LaunchedEffect(selectedDate, selectedMassFormId) { dailyContentViewModel.load(selectedDate, selectedMassFormId) }
@@ -125,6 +134,7 @@ private fun LectioSaApp() {
                                     AppScreen.Daily -> "Lectio SA"
                                     AppScreen.About -> "About Lectio SA"
                                     AppScreen.Sources -> "Sources"
+                                    AppScreen.Support -> "Support Lectio SA"
                                 },
                             )
                         },
@@ -132,6 +142,7 @@ private fun LectioSaApp() {
                             if (screen == AppScreen.Daily) {
                                 TextButton(onClick = { screen = AppScreen.About }) { Text("About") }
                                 TextButton(onClick = { screen = AppScreen.Sources }) { Text("Sources") }
+                                TextButton(onClick = { browserUnavailable = false; screen = AppScreen.Support }) { Text("Support") }
                             }
                         },
                     )
@@ -245,11 +256,27 @@ private fun LectioSaApp() {
                     Spacer(Modifier.height(20.dp))
                     }
                 } else {
-                    ContentInfoScreen(
-                        modifier = Modifier.padding(padding),
-                        state = contentInfo,
-                        showSources = screen == AppScreen.Sources,
-                    )
+                    if (screen == AppScreen.Support) {
+                        SupportScreen(
+                            modifier = Modifier.padding(padding),
+                            browserUnavailable = browserUnavailable,
+                            onOpenTippingJar = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(TIPPING_JAR_URL))
+                                    it.startActivity(intent)
+                                    browserUnavailable = false
+                                } catch (_: ActivityNotFoundException) {
+                                    browserUnavailable = true
+                                }
+                            },
+                        )
+                    } else {
+                        ContentInfoScreen(
+                            modifier = Modifier.padding(padding),
+                            state = contentInfo,
+                            showSources = screen == AppScreen.Sources,
+                        )
+                    }
                 }
             }
         }
@@ -281,6 +308,40 @@ private fun ContentInfoScreen(
             is za.co.hawkiesza.lectiosa.content.ContentInfoState.Available -> {
                 if (showSources) SourcesContent(state.info) else AboutContent(state.info)
             }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SupportScreen(
+    modifier: Modifier,
+    browserUnavailable: Boolean,
+    onOpenTippingJar: (android.content.Context) -> Unit,
+) {
+    val context = LocalContext.current
+    Column(
+        modifier = modifier
+            .padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.height(16.dp))
+        Text("Support Lectio SA", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "If Lectio SA is useful to you, you can support its continued development with a voluntary tip.",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(20.dp))
+        Button(onClick = { onOpenTippingJar(context) }) {
+            Text("Open tipping jar")
+        }
+        if (browserUnavailable) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "No browser is available on this device to open the tipping jar.",
+                color = MaterialTheme.colorScheme.error,
+            )
         }
         Spacer(Modifier.height(24.dp))
     }
