@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
@@ -122,6 +123,7 @@ private fun LectioSaApp() {
     var datePickerOpen by rememberSaveable { mutableStateOf(false) }
     var screen by rememberSaveable { mutableStateOf(AppScreen.Daily) }
     var browserUnavailable by rememberSaveable { mutableStateOf(false) }
+    var overflowMenuOpen by rememberSaveable { mutableStateOf(false) }
     var readingPositionRestored by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = screen != AppScreen.Daily) {
         screen = AppScreen.Daily
@@ -180,10 +182,49 @@ private fun LectioSaApp() {
                         },
                         actions = {
                             if (screen == AppScreen.Daily) {
-                                TextButton(onClick = { screen = AppScreen.About }) { Text("About") }
-                                TextButton(onClick = { screen = AppScreen.Sources }) { Text("Sources") }
-                                TextButton(onClick = { browserUnavailable = false; screen = AppScreen.Support }) { Text("Support") }
-                                TextButton(onClick = { screen = AppScreen.Settings }) { Text("Settings") }
+                                TextButton(onClick = {
+                                    overflowMenuOpen = false
+                                    browserUnavailable = false
+                                    screen = AppScreen.Support
+                                }) {
+                                    Text("Support")
+                                }
+                                Box {
+                                    IconButton(
+                                        onClick = { overflowMenuOpen = true },
+                                    ) {
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = "More options",
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = overflowMenuOpen,
+                                        onDismissRequest = { overflowMenuOpen = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("About") },
+                                            onClick = {
+                                                overflowMenuOpen = false
+                                                screen = AppScreen.About
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Sources") },
+                                            onClick = {
+                                                overflowMenuOpen = false
+                                                screen = AppScreen.Sources
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Settings") },
+                                            onClick = {
+                                                overflowMenuOpen = false
+                                                screen = AppScreen.Settings
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         },
                     )
