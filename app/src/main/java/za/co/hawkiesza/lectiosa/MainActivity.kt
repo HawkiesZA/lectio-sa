@@ -238,30 +238,6 @@ private fun LectioSaApp() {
                             .verticalScroll(rememberScrollState()),
                     ) {
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "South African Catholic daily readings",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "WEB Catholic · South African national calendar",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = contentStatus,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    supportedDateRange?.let { range ->
-                        Text(
-                            text = "Supported dates: ${range.start.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))} – " +
-                                range.end.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Spacer(Modifier.height(16.dp))
                     DateNavigation(
                         displayDate = displayDate,
                         isToday = date == LocalDate.now(),
