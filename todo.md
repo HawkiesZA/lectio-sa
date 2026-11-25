@@ -34,7 +34,7 @@ This checklist tracks the implementation plan against the current prototype.
 
 ## Next: reliability and release
 
-- [ ] Add a content manifest with content version, source hashes, rights metadata, build ID, and coverage.
+- [x] Add a content manifest with content version, source hashes, rights metadata, build ID, and coverage.
 - [ ] Implement staged content replacement with validation, checksum verification, and rollback.
 - [ ] Add Android tests for offline launch, database integrity, rotation, process recreation, accessibility, and large fonts.
 - [ ] Verify TalkBack, contrast, touch targets, typography, and tablet layouts on devices.

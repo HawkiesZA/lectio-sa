@@ -5,6 +5,7 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.Year
+import java.util.Properties
 
 private const val EXPECTED_COLUMNS =
     "date,calendar_scope,celebration,rank,liturgical_colour,mass_form,first_reading,psalm,second_reading,gospel,source_url,review_status"
@@ -47,8 +48,10 @@ fun main(args: Array<String>) {
         return
     }
     if (args.firstOrNull() == "--compile-db") {
-        require(args.size == 4) { "usage: --compile-db <rendered.tsv> <calendar-dir> <output.db>" }
-        compileDatabase(Path.of(args[1]), Path.of(args[2]), Path.of(args[3]))
+        require(args.size in 4..5) { "usage: --compile-db <rendered.tsv> <calendar-dir> <output.db> [manifest.json]" }
+        val output = Path.of(args[3])
+        val manifest = args.getOrNull(4)?.let(Path::of) ?: Path.of("${args[3]}.manifest.json")
+        compileDatabase(Path.of(args[1]), Path.of(args[2]), output, manifest)
         return
     }
     if (args.firstOrNull() == "--overlay-source") {
@@ -756,10 +759,34 @@ internal fun mappedSourceReference(book: String, chapter: Int, verse: Int): Sour
 private fun formatCitationFailure(input: CalendarCitation, citation: String, message: String): String =
     "${input.source}:${input.line} ${input.date} ${input.form}/${input.role} '$citation': $message"
 
-private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path) {
+private data class ManifestSourceInput(
+    val id: String,
+    val name: String,
+    val url: String,
+    val attribution: String,
+    val rightsStatus: String,
+    val rightsNotice: String,
+)
+
+private data class ManifestInputs(
+    val manifestVersion: Int,
+    val contentVersion: String,
+    val editionId: String,
+    val editionDisplayName: String,
+    val editionSourceModule: String,
+    val editionVersification: String,
+    val editionAttribution: String,
+    val editionRightsStatus: String,
+    val editionRightsNotice: String,
+    val sources: List<ManifestSourceInput>,
+)
+
+private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path, manifestOutput: Path) {
     require(Files.exists(renderedPath)) { "rendered input not found: $renderedPath" }
     require(Files.isDirectory(calendarDir)) { "calendar directory not found: $calendarDir" }
     require(Files.exists(Path.of("content/schema.sql"))) { "content/schema.sql not found" }
+    val manifestInputPath = Path.of("content/manifest-inputs.properties")
+    val manifestInputs = readManifestInputs(manifestInputPath)
     validateCalendar(renderedPath, calendarDir).requireValid()
     val roomIdentityHash = readRoomIdentityHash()
     val calendarRows = mutableListOf<List<String>>()
@@ -814,6 +841,18 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
             "mass-reading sequences must be contiguous: $form"
         }
     }
+    val manifestJson = buildManifestJson(
+        manifestInputs = manifestInputs,
+        manifestInputPath = manifestInputPath,
+        renderedPath = renderedPath,
+        calendarDir = calendarDir,
+        calendarRows = calendarRows,
+        formRows = formRows,
+        readingRows = readingRows,
+        roomIdentityHash = roomIdentityHash,
+    )
+    manifestOutput.parent?.let(Files::createDirectories)
+    Files.writeString(manifestOutput, manifestJson)
     output.parent?.let(Files::createDirectories)
     Files.deleteIfExists(output)
 
@@ -827,12 +866,15 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
             sql.appendLine("BEGIN;")
             sql.appendLine("INSERT INTO content_metadata(key, value) VALUES " +
                 "('schema_version', '4'), " +
-                "('source_module', 'engwebc2025eb'), " +
-                "('rendered_source_sha256', " + sqlString(sha256(renderedPath)) + ");")
-            sql.appendLine("INSERT INTO edition(id, display_name, source_module, versification, attribution, rights_notice) VALUES " +
-                "('web-catholic', 'World English Bible Catholic', 'engwebc2025eb', 'Vulg', " +
-                sqlString("eBible.org World English Bible Catholic") + ", " +
-                sqlString("Public-domain Scripture text; preserve the publisher attribution and notice.") + ");")
+                "('source_module', " + sqlString(manifestInputs.editionSourceModule) + "), " +
+                "('rendered_source_sha256', " + sqlString(sha256(renderedPath)) + "), " +
+                "('content_version', " + sqlString(manifestInputs.contentVersion) + "), " +
+                "('build_id', " + sqlString(manifestBuildId(manifestJson)) + "), " +
+                "('manifest_json', " + sqlString(manifestJson) + ");")
+            sql.appendLine("INSERT INTO edition(id, display_name, source_module, versification, attribution, rights_notice) VALUES (" +
+                sqlString(manifestInputs.editionId) + ", " + sqlString(manifestInputs.editionDisplayName) + ", " +
+                sqlString(manifestInputs.editionSourceModule) + ", " + sqlString(manifestInputs.editionVersification) + ", " +
+                sqlString(manifestInputs.editionAttribution) + ", " + sqlString(manifestInputs.editionRightsNotice) + ");")
 
             val exceptionPath = calendarDir.resolve("content_exceptions.csv")
             if (Files.exists(exceptionPath)) {
@@ -943,6 +985,203 @@ private fun compileDatabase(renderedPath: Path, calendarDir: Path, output: Path)
     } finally {
         Files.deleteIfExists(sqlFile)
     }
+}
+
+private fun readManifestInputs(path: Path): ManifestInputs {
+    require(Files.exists(path)) { "manifest inputs not found: $path" }
+    val properties = Properties()
+    Files.newInputStream(path).use { input -> properties.load(input) }
+    fun required(key: String): String = properties.getProperty(key)?.takeIf(String::isNotBlank)
+        ?: error("manifest input '$key' must not be blank")
+
+    val sourceIds = properties.stringPropertyNames()
+        .mapNotNull { Regex("source\\.([^.]+)\\.name").matchEntire(it)?.groupValues?.get(1) }
+        .distinct()
+        .sorted()
+    require(sourceIds.isNotEmpty()) { "manifest inputs must declare at least one source" }
+    return ManifestInputs(
+        manifestVersion = required("manifest_version").toIntOrNull()
+            ?: error("manifest_version must be numeric"),
+        contentVersion = required("content_version"),
+        editionId = required("edition.id"),
+        editionDisplayName = required("edition.display_name"),
+        editionSourceModule = required("edition.source_module"),
+        editionVersification = required("edition.versification"),
+        editionAttribution = required("edition.attribution"),
+        editionRightsStatus = required("edition.rights_status"),
+        editionRightsNotice = required("edition.rights_notice"),
+        sources = sourceIds.map { id ->
+            ManifestSourceInput(
+                id = id,
+                name = required("source.$id.name"),
+                url = required("source.$id.url"),
+                attribution = required("source.$id.attribution"),
+                rightsStatus = required("source.$id.rights_status"),
+                rightsNotice = required("source.$id.rights_notice"),
+            )
+        },
+    )
+}
+
+private fun buildManifestJson(
+    manifestInputs: ManifestInputs,
+    manifestInputPath: Path,
+    renderedPath: Path,
+    calendarDir: Path,
+    calendarRows: List<List<String>>,
+    formRows: List<List<String>>,
+    readingRows: List<List<String>>,
+    roomIdentityHash: String,
+): String {
+    val sourceHashes = sortedMapOf<String, String>()
+    sourceHashes["manifest-inputs.properties"] = sha256(manifestInputPath)
+    sourceHashes["rendered_input.tsv"] = sha256(renderedPath)
+    Files.list(calendarDir).use { files ->
+        files.filter { it.fileName.toString().matches(Regex("\\d{4}\\.csv")) }
+            .sorted()
+            .forEach { sourceHashes["calendar/${it.fileName}"] = sha256(it) }
+    }
+    val sourceDirectory = Path.of("content/sources")
+    if (Files.isDirectory(sourceDirectory)) {
+        Files.list(sourceDirectory).use { files ->
+            files.filter { it.fileName.toString().endsWith(".tsv") }
+                .sorted()
+                .forEach { sourceHashes["sources/${it.fileName}"] = sha256(it) }
+        }
+    }
+
+    val explicitFormKeys = formRows.map { it[0] to it[1] }.toSet()
+    val implicitFormKeys = calendarRows.map { it[0] to it[1] }
+        .filterNot { it in explicitFormKeys }
+        .map { Triple(it.first, it.second, "default") }
+    val allForms = (formRows.map { Triple(it[0], it[1], it.getOrElse(2) { "default" }) } + implicitFormKeys).distinct()
+    val structure = validateCalendarStructure(calendarDir)
+    val coverage = calendarRows.groupBy { it[1] }.toSortedMap().map { (scope, rows) ->
+        val dates = rows.map { it[0] }.sorted()
+        val scopeForms = allForms.count { it.second == scope }
+        val implicitAssignments = rows.filterNot { (it[0] to it[1]) in explicitFormKeys }
+            .sumOf { it.drop(6).take(4).count(String::isNotBlank) }
+        val assignments = readingRows.count { it[1] == scope } + implicitAssignments
+        val noReadings = structure.noReadingDates
+            .filter { it.endsWith("/$scope") }
+            .map { it.substringBefore('/') }
+        CoverageSummary(scope, dates.first(), dates.last(), dates.distinct().size, scopeForms, assignments, noReadings)
+    }
+    val canonical = buildString {
+        append(manifestInputs.manifestVersion).append('|')
+        append(manifestInputs.contentVersion).append('|')
+        append(manifestInputs.editionId).append('|')
+        append(manifestInputs.editionDisplayName).append('|')
+        append(manifestInputs.editionSourceModule).append('|')
+        append(manifestInputs.editionVersification).append('|')
+        append(manifestInputs.editionAttribution).append('|')
+        append(manifestInputs.editionRightsStatus).append('|')
+        append(manifestInputs.editionRightsNotice).append('|')
+        manifestInputs.sources.forEach { source ->
+            append(source.id).append('|')
+            append(source.name).append('|')
+            append(source.url).append('|')
+            append(source.attribution).append('|')
+            append(source.rightsStatus).append('|')
+            append(source.rightsNotice).append('|')
+        }
+        append(roomIdentityHash).append('|')
+        sourceHashes.forEach { (key, value) -> append(key).append('=').append(value).append('|') }
+        coverage.forEach { append(it.canonical()).append('|') }
+    }
+    val buildId = sha256Text(canonical)
+
+    return buildString {
+        appendLine("{")
+        appendLine("  \"manifest_version\": ${manifestInputs.manifestVersion},")
+        appendLine("  \"content_version\": ${jsonString(manifestInputs.contentVersion)},")
+        appendLine("  \"build_id\": ${jsonString(buildId)},")
+        appendLine("  \"room_identity_hash\": ${jsonString(roomIdentityHash)},")
+        appendLine("  \"edition\": {")
+        appendLine("    \"id\": ${jsonString(manifestInputs.editionId)},")
+        appendLine("    \"display_name\": ${jsonString(manifestInputs.editionDisplayName)},")
+        appendLine("    \"source_module\": ${jsonString(manifestInputs.editionSourceModule)},")
+        appendLine("    \"versification\": ${jsonString(manifestInputs.editionVersification)},")
+        appendLine("    \"attribution\": ${jsonString(manifestInputs.editionAttribution)},")
+        appendLine("    \"rights_status\": ${jsonString(manifestInputs.editionRightsStatus)},")
+        appendLine("    \"rights_notice\": ${jsonString(manifestInputs.editionRightsNotice)}")
+        appendLine("  },")
+        appendLine("  \"sources\": [")
+        manifestInputs.sources.forEachIndexed { index, source ->
+            appendLine("    {")
+            appendLine("      \"id\": ${jsonString(source.id)},")
+            appendLine("      \"name\": ${jsonString(source.name)},")
+            appendLine("      \"url\": ${jsonString(source.url)},")
+            appendLine("      \"attribution\": ${jsonString(source.attribution)},")
+            appendLine("      \"rights_status\": ${jsonString(source.rightsStatus)},")
+            appendLine("      \"rights_notice\": ${jsonString(source.rightsNotice)}")
+            append("    }")
+            if (index != manifestInputs.sources.lastIndex) append(',')
+            appendLine()
+        }
+        appendLine("  ],")
+        appendLine("  \"source_hashes\": {")
+        sourceHashes.entries.forEachIndexed { index, (key, value) ->
+            append("    ").append(jsonString(key)).append(": ").append(jsonString(value))
+            if (index != sourceHashes.size - 1) append(',')
+            appendLine()
+        }
+        appendLine("  },")
+        appendLine("  \"coverage\": [")
+        coverage.forEachIndexed { index, item ->
+            appendLine("    {")
+            appendLine("      \"calendar_scope\": ${jsonString(item.scope)},")
+            appendLine("      \"start\": ${jsonString(item.start)},")
+            appendLine("      \"end\": ${jsonString(item.end)},")
+            appendLine("      \"calendar_days\": ${item.days},")
+            appendLine("      \"mass_forms\": ${item.forms},")
+            appendLine("      \"reading_assignments\": ${item.assignments},")
+            append("      \"no_reading_dates\": ")
+            append(item.noReadings.joinToString(prefix = "[", postfix = "]") { jsonString(it) })
+            appendLine()
+            append("    }")
+            if (index != coverage.lastIndex) append(',')
+            appendLine()
+        }
+        appendLine("  ]")
+        appendLine("}")
+    }
+}
+
+private data class CoverageSummary(
+    val scope: String,
+    val start: String,
+    val end: String,
+    val days: Int,
+    val forms: Int,
+    val assignments: Int,
+    val noReadings: List<String>,
+) {
+    fun canonical(): String = listOf(scope, start, end, days, forms, assignments, noReadings.joinToString(",")).joinToString("|")
+}
+
+private fun manifestBuildId(manifestJson: String): String =
+    Regex("\\\"build_id\\\"\\s*:\\s*\\\"([0-9a-f]+)\\\"").find(manifestJson)?.groupValues?.get(1)
+        ?: error("generated manifest has no build_id")
+
+private fun jsonString(value: String): String = buildString {
+    append('"')
+    value.forEach { character ->
+        when (character) {
+            '\\' -> append("\\\\")
+            '"' -> append("\\\"")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> append(character)
+        }
+    }
+    append('"')
+}
+
+private fun sha256Text(value: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return digest.digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { byte -> "%02x".format(byte) }
 }
 
 private fun readRoomIdentityHash(): String {

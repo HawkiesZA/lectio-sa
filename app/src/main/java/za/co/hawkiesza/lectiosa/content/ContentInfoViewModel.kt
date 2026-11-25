@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 
 data class ContentInfo(
     val edition: EditionEntity,
+    val manifest: ContentManifest?,
     val metadata: Map<String, String>,
     val supportedDateRange: SupportedDateRange?,
     val calendarDayCount: Int,
@@ -35,9 +36,11 @@ class ContentInfoViewModel(application: Application) : AndroidViewModel(applicat
                     val dao = database.contentDao()
                     val edition = dao.editions().firstOrNull()
                         ?: error("No Scripture edition is bundled")
+                    val metadata = dao.metadata().associate { item -> item.key to item.value }
                     ContentInfo(
                         edition = edition,
-                        metadata = dao.metadata().associate { metadata -> metadata.key to metadata.value },
+                        manifest = metadata["manifest_json"]?.let(ContentManifest::parse),
+                        metadata = metadata,
                         supportedDateRange = dao.calendarDateRange("SACBC").toSupportedDateRangeOrNull(),
                         calendarDayCount = dao.calendarDayCount(),
                         verseCount = dao.verseCount(),

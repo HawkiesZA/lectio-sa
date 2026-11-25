@@ -620,6 +620,7 @@ private fun AboutContent(info: za.co.hawkiesza.lectiosa.content.ContentInfo) {
         DetailRow("Versification", info.edition.versification)
         DetailRow("Attribution", info.edition.attribution)
         DetailRow("Rights", info.edition.rightsNotice)
+        info.manifest?.let { DetailRow("Rights status", it.editionRightsStatus) }
     }
     Spacer(Modifier.height(16.dp))
     DetailSection("Bundled coverage") {
@@ -629,6 +630,10 @@ private fun AboutContent(info: za.co.hawkiesza.lectiosa.content.ContentInfo) {
         }
         DetailRow("Calendar days", info.calendarDayCount.toString())
         DetailRow("Scripture records", info.verseCount.toString())
+        info.manifest?.let {
+            DetailRow("Content version", it.contentVersion)
+            DetailRow("Build ID", it.buildId.take(12))
+        }
     }
 }
 
@@ -644,6 +649,10 @@ private fun SourcesContent(info: za.co.hawkiesza.lectiosa.content.ContentInfo) {
         DetailRow("Module", info.edition.sourceModule)
         DetailRow("Attribution", info.edition.attribution)
         DetailRow("Rights", info.edition.rightsNotice)
+        info.manifest?.let { manifest ->
+            DetailRow("Edition rights status", manifest.editionRightsStatus)
+            DetailRow("Edition rights notice", manifest.editionRightsNotice)
+        }
     }
     Spacer(Modifier.height(16.dp))
     DetailSection("Calendar source") {
@@ -661,6 +670,24 @@ private fun SourcesContent(info: za.co.hawkiesza.lectiosa.content.ContentInfo) {
     DetailSection("Build metadata") {
         info.metadata["schema_version"]?.let { DetailRow("Schema version", it) }
         info.metadata["rendered_source_sha256"]?.let { DetailRow("Rendered source SHA-256", it) }
+        info.manifest?.let { manifest ->
+            DetailRow("Content version", manifest.contentVersion)
+            DetailRow("Build ID", manifest.buildId)
+            DetailRow("Manifest version", manifest.manifestVersion.toString())
+            manifest.sources.forEach { source ->
+                DetailRow("${source.name} rights", source.rightsStatus)
+                DetailRow("${source.name} URL", source.url)
+                DetailRow("${source.name} notice", source.rightsNotice)
+            }
+            manifest.sourceHashes.forEach { (path, hash) -> DetailRow("SHA-256 $path", hash) }
+            manifest.coverage.forEach { coverage ->
+                DetailRow("${coverage.scope} assignments", coverage.readingAssignments.toString())
+                DetailRow("${coverage.scope} forms", coverage.massForms.toString())
+                if (coverage.noReadingDates.isNotEmpty()) {
+                    DetailRow("${coverage.scope} no readings", coverage.noReadingDates.joinToString())
+                }
+            }
+        }
     }
 }
 

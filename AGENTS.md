@@ -16,6 +16,10 @@ The planned application stack is Kotlin, Android, Jetpack Compose, Material 3, R
 
 ## Build, Test, and Development Commands
 
+When running gradle, use the local cache with:
+```
+GRADLE_USER_HOME="$PWD/.gradle-local" <gradle-command>
+```
 Use the Gradle wrapper from the repository root:
 
 ```sh

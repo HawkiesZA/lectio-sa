@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import java.nio.file.Files
+import java.util.Properties
 
 class MainTest {
     @Test
@@ -13,6 +14,26 @@ class MainTest {
         assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/2027.csv")))
         assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/mass_forms.csv")))
         assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/calendar/mass_readings.csv")))
+        assertTrue(java.nio.file.Files.exists(java.nio.file.Path.of("content/manifest-inputs.properties")))
+    }
+
+    @Test
+    fun manifestInputsDeclareRightsAndProvenanceForEverySource() {
+        val properties = Properties()
+        Files.newInputStream(java.nio.file.Path.of("content/manifest-inputs.properties")).use { input -> properties.load(input) }
+
+        assertTrue(properties.getProperty("content_version").isNotBlank())
+        assertTrue(properties.getProperty("edition.rights_status").isNotBlank())
+        assertTrue(properties.getProperty("edition.rights_notice").isNotBlank())
+        val sourceIds = properties.stringPropertyNames()
+            .mapNotNull { Regex("source\\.([^.]+)\\.name").matchEntire(it)?.groupValues?.get(1) }
+        assertTrue(sourceIds.isNotEmpty())
+        sourceIds.forEach { id ->
+            assertTrue(properties.getProperty("source.$id.url").isNotBlank())
+            assertTrue(properties.getProperty("source.$id.attribution").isNotBlank())
+            assertTrue(properties.getProperty("source.$id.rights_status").isNotBlank())
+            assertTrue(properties.getProperty("source.$id.rights_notice").isNotBlank())
+        }
     }
 
     @Test

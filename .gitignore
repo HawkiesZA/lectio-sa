@@ -2,6 +2,7 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
+.gradle-local
 
 # Android Studio / IntelliJ
 .idea/

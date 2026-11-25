@@ -23,6 +23,18 @@ From the repository root, inspect and prepare the module with the native SWORD t
 
 The `.imp` and `.tsv` files are preparation intermediates. Keep them outside packaged Android outputs and retain their source hash in the content manifest.
 
+## Content manifest
+
+`content/manifest-inputs.properties` is the reviewed, human-maintained input for the generated content manifest. It contains the content version, edition rights notice, and source provenance. The compiler hashes the rendered Scripture input, calendar CSVs, checked-in source overlays, and manifest inputs, then derives a deterministic build ID.
+
+Compile the database and standalone manifest together:
+
+```sh
+./gradlew :content-tool:run --args='--compile-db /private/tmp/engwebc2025eb-rendered-overlaid.tsv content/calendar /private/tmp/lectio-content.db /private/tmp/lectio-content.manifest.json'
+```
+
+The exact same manifest JSON is embedded in the database under `content_metadata.manifest_json`. Copy `/private/tmp/lectio-content.db` into the app content asset when refreshing bundled content, and archive the standalone `/private/tmp/lectio-content.manifest.json` alongside the release artifacts for inspection and provenance records.
+
 ## WEB Catholic Psalm 119 source overlay
 
 The current SWORD module exports Psalm 119 with an invalid verse boundary: verses after 6 are aggregated under verse 7. Obtain the verse-level Psalm 119 text from the pinned WEB Catholic upstream source and save it as a four-column TSV:
