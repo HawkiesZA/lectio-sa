@@ -53,17 +53,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.Clock
+import java.time.Duration
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.ZoneOffset
+import kotlinx.coroutines.delay
 import za.co.hawkiesza.lectiosa.content.ResolvedVerse
 import za.co.hawkiesza.lectiosa.preferences.AppPreferences
 import za.co.hawkiesza.lectiosa.preferences.AppPreferencesViewModel
 import za.co.hawkiesza.lectiosa.preferences.AppTextSize
 import za.co.hawkiesza.lectiosa.preferences.AppThemePreference
+import za.co.hawkiesza.lectiosa.preferences.ReadingDateSelectionMode
 import za.co.hawkiesza.lectiosa.preferences.initialReadingDate
+import za.co.hawkiesza.lectiosa.preferences.refreshReadingDate
+
+private val APP_ZONE_ID: ZoneId = ZoneId.of("Africa/Johannesburg")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,7 +117,7 @@ private val sampleReadings = listOf(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun LectioSaApp() {
+private fun LectioSaApp(clock: Clock = Clock.system(APP_ZONE_ID)) {
     val contentStatusViewModel: za.co.hawkiesza.lectiosa.content.ContentStatusViewModel = viewModel()
     val contentStatus by contentStatusViewModel.status.collectAsState()
     val supportedDateRange by contentStatusViewModel.supportedDateRange.collectAsState()
@@ -118,13 +128,36 @@ private fun LectioSaApp() {
     val preferences = storedPreferences ?: AppPreferences()
     val dailyContentViewModel: za.co.hawkiesza.lectiosa.content.DailyContentViewModel = viewModel()
     val dailyContent by dailyContentViewModel.content.collectAsState()
-    var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var currentToday by rememberSaveable { mutableStateOf(LocalDate.now(clock).toString()) }
+    var selectedDate by rememberSaveable { mutableStateOf(currentToday) }
     var selectedMassFormId by rememberSaveable { mutableStateOf("") }
     var datePickerOpen by rememberSaveable { mutableStateOf(false) }
     var screen by rememberSaveable { mutableStateOf(AppScreen.Daily) }
     var browserUnavailable by rememberSaveable { mutableStateOf(false) }
     var overflowMenuOpen by rememberSaveable { mutableStateOf(false) }
     var readingPositionRestored by rememberSaveable { mutableStateOf(false) }
+    var dateSelectionModeName by rememberSaveable {
+        mutableStateOf(ReadingDateSelectionMode.AUTOMATIC_TODAY.name)
+    }
+    val dateSelectionMode = ReadingDateSelectionMode.valueOf(dateSelectionModeName)
+    val today = LocalDate.parse(currentToday)
+
+    fun refreshToday() {
+        currentToday = LocalDate.now(clock).toString()
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refreshToday() }
+    LaunchedEffect(clock) {
+        while (true) {
+            val now = java.time.Instant.now(clock)
+            val nextMidnight = LocalDate.now(clock)
+                .plusDays(1)
+                .atStartOfDay(clock.zone)
+                .toInstant()
+            delay(Duration.between(now, nextMidnight).toMillis().coerceAtLeast(1_000L))
+            refreshToday()
+        }
+    }
     BackHandler(enabled = screen != AppScreen.Daily) {
         screen = AppScreen.Daily
     }
@@ -134,9 +167,27 @@ private fun LectioSaApp() {
         val range = supportedDateRange
         val stored = storedPreferences
         if (!readingPositionRestored && range != null && stored != null) {
-            selectedDate = initialReadingDate(stored.rememberedDate, LocalDate.now(), range).toString()
+            val restoredDate = initialReadingDate(stored.rememberedDate, today, range)
+            selectedDate = restoredDate.toString()
             selectedMassFormId = stored.rememberedMassFormId.orEmpty()
+            val rememberedDate = stored.rememberedDate
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            dateSelectionModeName = if (rememberedDate != null && rememberedDate != today) {
+                ReadingDateSelectionMode.PINNED.name
+            } else {
+                ReadingDateSelectionMode.AUTOMATIC_TODAY.name
+            }
             readingPositionRestored = true
+        }
+    }
+    LaunchedEffect(currentToday, supportedDateRange, dateSelectionMode, readingPositionRestored) {
+        val range = supportedDateRange
+        if (readingPositionRestored && range != null && dateSelectionMode == ReadingDateSelectionMode.AUTOMATIC_TODAY) {
+            val refreshed = refreshReadingDate(date, today, dateSelectionMode, range)
+            if (refreshed.selectedDate != date) {
+                selectedDate = refreshed.selectedDate.toString()
+                selectedMassFormId = ""
+            }
         }
     }
     LaunchedEffect(selectedDate, selectedMassFormId) { dailyContentViewModel.load(selectedDate, selectedMassFormId) }
@@ -240,13 +291,27 @@ private fun LectioSaApp() {
                     Spacer(Modifier.height(12.dp))
                     DateNavigation(
                         displayDate = displayDate,
-                        isToday = date == LocalDate.now(),
+                        isToday = date == today,
                         canGoPrevious = supportedDateRange?.let { date.isAfter(it.start) } ?: true,
                         canGoNext = supportedDateRange?.let { date.isBefore(it.end) } ?: true,
                         canChooseDate = supportedDateRange != null,
-                        onPrevious = { selectedDate = date.minusDays(1).toString(); selectedMassFormId = "" },
-                        onNext = { selectedDate = date.plusDays(1).toString(); selectedMassFormId = "" },
-                        onToday = { selectedDate = LocalDate.now().toString(); selectedMassFormId = "" },
+                        onPrevious = {
+                            dateSelectionModeName = ReadingDateSelectionMode.PINNED.name
+                            selectedDate = date.minusDays(1).toString()
+                            selectedMassFormId = ""
+                        },
+                        onNext = {
+                            dateSelectionModeName = ReadingDateSelectionMode.PINNED.name
+                            selectedDate = date.plusDays(1).toString()
+                            selectedMassFormId = ""
+                        },
+                        onToday = {
+                            dateSelectionModeName = ReadingDateSelectionMode.AUTOMATIC_TODAY.name
+                            selectedDate = supportedDateRange
+                                ?.let { initialReadingDate(null, today, it).toString() }
+                                ?: today.toString()
+                            selectedMassFormId = ""
+                        },
                         onChooseDate = { datePickerOpen = true },
                     )
                     if (datePickerOpen && supportedDateRange != null) {
@@ -255,6 +320,7 @@ private fun LectioSaApp() {
                             supportedDateRange = supportedDateRange!!,
                             onDismiss = { datePickerOpen = false },
                             onSelect = {
+                                dateSelectionModeName = ReadingDateSelectionMode.PINNED.name
                                 selectedDate = it.toString()
                                 selectedMassFormId = ""
                                 datePickerOpen = false

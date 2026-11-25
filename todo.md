@@ -29,7 +29,7 @@ This checklist tracks the implementation plan against the current prototype.
 - [x] Add Settings for system/light/dark theme, text size, and optional verse numbers.
 - [x] Add DataStore preferences and settings model.
 - [x] Wire DataStore into Settings UI and remembered reading position.
-- [ ] Refresh “today” on resume and after midnight without disrupting a deliberately selected date.
+- [x] Refresh “today” on resume and after midnight without disrupting a deliberately selected date.
 - [ ] Add a report-issue action that copies date, citation, edition, and content-version diagnostics.
 
 ## Next: reliability and release

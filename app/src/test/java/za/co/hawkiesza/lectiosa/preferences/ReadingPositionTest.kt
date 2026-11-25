@@ -38,4 +38,52 @@ class ReadingPositionTest {
             initialReadingDate(null, LocalDate.parse("2025-01-01"), range),
         )
     }
+
+    @Test
+    fun automaticDateFollowsTodayAfterMidnight() {
+        assertEquals(
+            ReadingDateRefreshResult(
+                selectedDate = LocalDate.parse("2026-11-21"),
+                selectionMode = ReadingDateSelectionMode.AUTOMATIC_TODAY,
+            ),
+            refreshReadingDate(
+                selectedDate = LocalDate.parse("2026-11-20"),
+                today = LocalDate.parse("2026-11-21"),
+                selectionMode = ReadingDateSelectionMode.AUTOMATIC_TODAY,
+                supportedDateRange = range,
+            ),
+        )
+    }
+
+    @Test
+    fun pinnedDateSurvivesMidnight() {
+        assertEquals(
+            ReadingDateRefreshResult(
+                selectedDate = LocalDate.parse("2026-11-20"),
+                selectionMode = ReadingDateSelectionMode.PINNED,
+            ),
+            refreshReadingDate(
+                selectedDate = LocalDate.parse("2026-11-20"),
+                today = LocalDate.parse("2026-11-21"),
+                selectionMode = ReadingDateSelectionMode.PINNED,
+                supportedDateRange = range,
+            ),
+        )
+    }
+
+    @Test
+    fun automaticDateClampsWhenTodayIsOutsideCoverage() {
+        assertEquals(
+            ReadingDateRefreshResult(
+                selectedDate = range.end,
+                selectionMode = ReadingDateSelectionMode.AUTOMATIC_TODAY,
+            ),
+            refreshReadingDate(
+                selectedDate = range.end.minusDays(1),
+                today = LocalDate.parse("2028-01-01"),
+                selectionMode = ReadingDateSelectionMode.AUTOMATIC_TODAY,
+                supportedDateRange = range,
+            ),
+        )
+    }
 }
