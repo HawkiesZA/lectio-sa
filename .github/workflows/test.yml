@@ -67,4 +67,5 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 1200
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-snapshot-save -wipe-data -noaudio -no-boot-anim -cores 2
+          pre-emulator-launch-script: adb start-server
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
