@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+}
+
+val signingPropertiesFile = rootProject.file("keystore.properties")
+val signingProperties = Properties().apply {
+    if (signingPropertiesFile.isFile) {
+        signingPropertiesFile.inputStream().use(::load)
+    }
 }
 
 android {
@@ -17,6 +26,27 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (signingPropertiesFile.isFile) {
+                storeFile = rootProject.file(signingProperties.required("storeFile"))
+                storePassword = signingProperties.required("storePassword")
+                keyAlias = signingProperties.required("keyAlias")
+                keyPassword = signingProperties.required("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            require(signingPropertiesFile.isFile) {
+                "Release signing requires keystore.properties at ${signingPropertiesFile.absolutePath}"
+            }
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
+    }
+
     buildFeatures {
         compose = true
     }
@@ -27,6 +57,10 @@ android {
     }
 
 }
+
+fun Properties.required(name: String): String =
+    getProperty(name)?.takeIf(String::isNotBlank)
+        ?: error("Missing '$name' in ${signingPropertiesFile.absolutePath}")
 
 kotlin {
     compilerOptions {
