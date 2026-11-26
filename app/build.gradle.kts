@@ -39,10 +39,9 @@ android {
 
     buildTypes {
         getByName("release") {
-            require(signingPropertiesFile.isFile) {
-                "Release signing requires keystore.properties at ${signingPropertiesFile.absolutePath}"
+            if (signingPropertiesFile.isFile) {
+                signingConfig = signingConfigs.getByName("release")
             }
-            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
         }
     }
@@ -56,6 +55,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+}
+
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    doFirst {
+        require(signingPropertiesFile.isFile) {
+            "Release signing requires keystore.properties at ${signingPropertiesFile.absolutePath}"
+        }
+    }
 }
 
 fun Properties.required(name: String): String =
